@@ -5,8 +5,7 @@ from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 
 class DataCollection:
-    def __init__(self):
-        return
+
     
     @staticmethod
     def importData(csvPath):
