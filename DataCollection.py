@@ -2,13 +2,17 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import LabelEncoder
+import pandas as pd
 
 class DataCollection:
-
-    def importData(dataPath):
-        dataFrame="" #read CSV to dataframe
-        return dataFrame
+    def __init__(self):
+        return
     
+    @staticmethod
+    def importData(csvPath):
+        return pd.DataFrame.from_csv(csvPath)
+
+    @staticmethod
     def preprocess(dataFrame,categoricalColumns,numericColumns):
         #proprocess null data
         dataFrame=dataFrame.fillna(99999)
@@ -23,7 +27,7 @@ class DataCollection:
             dataFrame[col]=le.transform(dataFrame[col])
         return dataFrame
 
-
+    @staticmethod
     def selectFeatures(dataFrame):
         #use feature selection/prioritization methods
         return dataFrame
