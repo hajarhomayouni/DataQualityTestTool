@@ -215,63 +215,8 @@ class SOM(object):
 
         return to_return
 
- ###############################################################################
-def query_to_df(query):
-    df_data = pd.read_gbq(query,
-                     project_id='sandbox-omop',
-                     dialect='standard',
-                     private_key='key.json',
-                     verbose=False)
-    df_data=df_data.fillna(99999)
-    return df_data
-
-datetime.datetime.now()
-def preprocess(df_data, categorical_columns,numeric_columns):  
-    #preprocess numeric columns
-    min_max=MinMaxScaler()
-    df_data[numeric_columns]=min_max.fit_transform(df_data[numeric_columns])
-    #preprocess categorical columns
-    le=LabelEncoder()
-    for col in categorical_columns:
-        data=df_data[col]
-        le.fit(data.values)       
-        df_data[col]=le.transform(df_data[col])
-    return df_data
 
 
-n_cluster=5
-
-query= "SELECT *  FROM `sandbox-omop.newly_detected_faults.observation_observation_period` "
-df_data=query_to_df(query)
-data=preprocess(df_data.drop(['observation_id'], axis=1),categorical_columns=['value_as_concept_id'],numeric_columns=['observation_date', 'observation_period_start_date', 'observation_period_end_date'])
-
-#Train a 20x30 SOM with 400 iterations
-som = SOM(5,5, 4, 400)
-som.train(data.values)
- 
-#Get output grid
-print som.get_centroids()
- 
-#Map colours to their closest neurons
-mapped= som.map_vects(data.values)
-
-labels_list=[list(x) for x in mapped]
-#print [i for i, x in enumerate(labels_list) if x == [2,2]]
-queries=""
-for i in range(5):
-    for j in range(5):
-        print np.array([i,j])
-        indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
-        print indexes_in_cluster
-        record_ids=[]
-        for index in range(len(indexes_in_cluster)):
-            record_ids.append(df_data.values[indexes_in_cluster[index]][0])
-        print record_ids
-        if len(record_ids)>0:
-            queries+= "#Cluster_"+str(i)+":\n"+"SELECT DISTINCT o.observation_id, observation_date, observation_period_start_date, observation_period_end_date, value_as_concept_id FROM `sandbox-omop.CHCO_DeID_Sept2016.observation` o LEFT JOIN `sandbox-omop.CHCO_DeID_Sept2016.observation_period` op ON o.person_id=op.person_id where observation_id in ("+ ','.join(str(x) for x in record_ids) + ")\n"
-test = open("out_observation_observation_period.sql","w")
-test.write(queries)
-datetime.datetime.now()
 
 
 

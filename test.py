@@ -1,6 +1,7 @@
 from DataCollection import DataCollection
 from Autoencoder import Autoencoder
 from Testing import Testing
+from SOM import SOM
 import h2o
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import numpy as np
@@ -32,4 +33,25 @@ invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreproces
 
 #Detect faulty records
 testing=Testing()
-print testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
+outlierFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
+
+
+#Cluster the faulty records
+#Train a 5*5 SOM with 100 iterations
+som = SOM(5,5, 4, 100)
+som.train(outlierFrame.values) 
+#Map data to their closest neurons
+mapped= som.map_vects(outlierFrame.values)
+labels_list=[list(x) for x in mapped]
+
+records=[]
+group_index=0
+for i in range(5):
+    for j in range(5):
+        indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]        
+        for index in range(len(indexes_in_cluster)):
+            records[group_index].append(outlierFrame.values[indexes_in_cluster[index]])
+        group_index+=1
+
+
+print records
