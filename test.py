@@ -36,22 +36,23 @@ invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreproces
 testing=Testing()
 outlierFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
 
-
+#todo: exclude id colun for clustering
 #Cluster the faulty records
 #Train a 5*5 SOM with 100 iterations
-som = SOM(5,5, 8, 100)
+som = SOM(5,5, len(outlierFrame.columns.values), 100)
 som.train(outlierFrame.values) 
 #Map data to their closest neurons
 mapped= som.map_vects(outlierFrame.values)
 labels_list=[list(x) for x in mapped]
 
-groups_of_outliers=[]*25
+groups_of_outliers=[]
 group_index=0
 for i in range(5):
     for j in range(5):
-        indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]        
-        groups_of_outliers.append(outlierFrame.values[indexes_in_cluster])
-        group_index+=1
+        indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
+        if len(outlierFrame.values[indexes_in_cluster]>0):
+            groups_of_outliers.append(outlierFrame.values[indexes_in_cluster])
+            group_index+=1
 
 
 print groups_of_outliers
