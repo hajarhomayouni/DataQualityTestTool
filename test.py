@@ -45,13 +45,13 @@ som.train(outlierFrame.values)
 mapped= som.map_vects(outlierFrame.values)
 labels_list=[list(x) for x in mapped]
 
-groups_of_outliers=pd.DataFrame(columns=['group_index'])
+groups_of_outliers=[[]]*25
 group_index=0
 for i in range(5):
     for j in range(5):
         indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]        
         for index in range(len(indexes_in_cluster)):
-            groups_of_outliers.loc[group_index]=outlierFrame.iloc[indexes_in_cluster[index]]
+            groups_of_outliers[group_index].append(outlierFrame.values[indexes_in_cluster[index]])
         group_index+=1
 
 
