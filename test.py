@@ -45,7 +45,7 @@ som.train(outlierFrame.values)
 mapped= som.map_vects(outlierFrame.values)
 labels_list=[list(x) for x in mapped]
 
-groups_of_outliers=pd.DataFrame(columns=['group_index])
+groups_of_outliers=pd.DataFrame(columns=['group_index'])
 group_index=0
 for i in range(5):
     for j in range(5):
