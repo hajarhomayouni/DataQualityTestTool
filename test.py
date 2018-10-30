@@ -16,7 +16,7 @@ print dataFrame
 
 
 #Read csv data
-dataFrame=dataCollection.importData("testData.csv").head(100)
+dataFrame=dataCollection.importData("testData.csv").head(1000)
 
 #Preprocess data - The first column is assumed to be an ID column
 dataFramePreprocessed= dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1), ['gender_concept_id'], ['year_of_birth'])
@@ -39,10 +39,10 @@ outlierFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(
 #todo: exclude id colun for clustering
 #Cluster the faulty records
 #Train a 5*5 SOM with 100 iterations
-som = SOM(5,5, len(outlierFrame.columns.values), 100)
-som.train(outlierFrame.values) 
+som = SOM(5,5, len(outlierFrame.columns.values)-2, 400)
+som.train(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values) 
 #Map data to their closest neurons
-mapped= som.map_vects(outlierFrame.values)
+mapped= som.map_vects(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values)
 labels_list=[list(x) for x in mapped]
 
 groups_of_outliers=[]
@@ -50,6 +50,7 @@ group_index=0
 for i in range(5):
     for j in range(5):
         indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
+        print indexes_in_cluster
         if len(outlierFrame.values[indexes_in_cluster]>0):
             groups_of_outliers.append(outlierFrame.iloc[indexes_in_cluster])
             group_index+=1
