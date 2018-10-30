@@ -51,7 +51,7 @@ for i in range(5):
     for j in range(5):
         indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
         if len(outlierFrame.values[indexes_in_cluster]>0):
-            groups_of_outliers.append(outlierFrame.values[indexes_in_cluster])
+            groups_of_outliers.append(outlierFrame.iloc[indexes_in_cluster])
             group_index+=1
 
 
