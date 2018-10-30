@@ -34,28 +34,13 @@ invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreproces
 
 #Detect faulty records
 testing=Testing()
-outlierFrame=testing.detectFaultyRecords(dataFramePreprocessed, invalidityScores, np.median(invalidityScores))
-
-#Preprocess faulty records
-#outlierFramePreprocessed=dataCollection.preprocess(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high']) 
+faultyRecordsFrame=testing.detectFaultyRecords(dataFramePreprocessed, invalidityScores, np.median(invalidityScores))
 
 
 #Cluster the faulty records
 #Exclude id columnand invalidity score for clustering
-som = SOM(5,5, len(outlierFrame.columns.values)-2, 400)
-som.train(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values) 
-#Map data to their closest neurons
-mapped= som.map_vects(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values)
-labels_list=[list(x) for x in mapped]
+som = SOM(5,5, len(faultyRecordsFrame.columns.values)-2, 400)
+print som.clusterFaultyRecords(faultyRecordsFrame.columns.values[0],'invalidityScore'],axis=1))
 
-groups_of_outliers=[]
-group_index=0
-for i in range(5):
-    for j in range(5):
-        indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
-        print indexes_in_cluster
-        if len(outlierFrame.values[indexes_in_cluster]>0):
-            groups_of_outliers.append(outlierFrame.iloc[indexes_in_cluster])
-            group_index+=1
 
 

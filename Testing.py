@@ -11,13 +11,16 @@ class Testing:
     
     @staticmethod
     def detectFaultyRecords(testDataFrame, invalidityScores, threshold):
-        outlierFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
+        faultyRecordsFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
         outlier_indexes, = np.where(invalidityScores > threshold)
         for outlier in range(len(outlier_indexes)):
-            outlierFrame.loc[outlier]=testDataFrame.iloc[outlier_indexes[outlier]]
-        outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
-        return outlierFrame
+            faultyRecordsFrame.loc[outlier]=testDataFrame.iloc[outlier_indexes[outlier]]
+        faultyRecordsFrame['invalidityScore']=invalidityScores[outlier_indexes]
+        return faultyRecordsFrame
 
+    @abc.abstractmethod
+    def clusterFaultyRecords(clusterModel, faultyRecordsFrame):
+        pass
     
         
 
