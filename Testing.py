@@ -18,6 +18,10 @@ class Testing:
         outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
         return outlierFrame
 
+    @abc.abstractmethod
+    def clusterFaultyRecords(self, faultyRecordFramePreprocessed, faultyRecordFrame):
+        pass
+
     
         
 
