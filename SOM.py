@@ -128,9 +128,9 @@ class SOM(object):
         return to_return
 
     
-    def clusterFaultyRecords(self, faultyRecordsFrame):
-        self.train(faultyRecordsFrame.values)
-        mapped= self.map_vects(faultyRecordsFrame.values)
+    def clusterFaultyRecords(self, faultyRecordsPreprocessed, faultyRecordsFrame):
+        self.train(faultyRecordsPreprocessed.values)
+        mapped= self.map_vects(faultyRecordsPreprocessed.values)
         labels_list=[list(x) for x in mapped]
         groupsOfFaultyRecords=[]
         group_index=0

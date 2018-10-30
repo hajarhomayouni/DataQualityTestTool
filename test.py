@@ -18,29 +18,31 @@ print dataFrame
 #Read csv data
 dataFrame=dataCollection.importData("testData.csv").head(100)
 
-#Preprocess data 
-dataFramePreprocessed= dataCollection.preprocess(dataFrame, ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high'])       
+#Preprocess data - The first column is assumed to be an ID column
+dataFramePreprocessed= dataCollection.preprocess(dataFrame.drop([dataFramePreprocessed.columns.values[0]], axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high'])       
 
 
-#Tune and Train model - The first column is assumed to be an ID column
+#Tune and Train model 
 autoencoder = Autoencoder()
 hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
 l2Opt = [1e-4,1e-2]
 hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=100),dataFramePreprocessed.drop([dataFramePreprocessed.columns.values[0]], axis=1))
+bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=100),dataFramePreprocessed)
 
-#Assign invalidity scores - The first column is assumed to be an ID column
-invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed.drop([dataFramePreprocessed.columns.values[0]], axis=1))
+#Assign invalidity scores 
+invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
 
 #Detect faulty records
 testing=Testing()
-faultyRecordsFrame=testing.detectFaultyRecords(dataFramePreprocessed, invalidityScores, np.median(invalidityScores))
+faultyRecordsFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
+faultyRecordsPreprocessed=dataCollection.preprocess(faultyRecordsFrame.drop([faultyRecordsFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high']) 
+
 
 
 #Cluster the faulty records
 #Exclude id columnand invalidity score for clustering
-som = SOM(5,5, len(faultyRecordsFrame.columns.values)-2, 400)
-print som.clusterFaultyRecords(faultyRecordsFrame.columns.values[0],'invalidityScore'],axis=1))
+som = SOM(5,5, len(faultyRecordsPreprocessed), 400)
+print som.clusterFaultyRecords(faultyRecordsPreprocessed, faultyRecordsFrame)
 
 
 
