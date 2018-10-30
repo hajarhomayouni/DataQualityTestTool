@@ -219,14 +219,12 @@ class SOM(object):
         self.train(faultyRecordFramePreprocessed.values)
         mapped= self.map_vects(faultyRecordFramePreprocessed.values)
         labels_list=[list(x) for x in mapped]
-        print labels_list
         groups_of_faultyRecords=[]
         group_index=0
         for i in range(self._m):
             for j in range(self._n):
                 indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
-                print indexes_in_cluster
-                if len(faultyRecordFrame.values[indexes_in_cluster]>0):
+                if len(faultyRecordFrame.values[indexes_in_cluster])>0:
                     groups_of_faultyRecords.append(faultyRecordFrame.iloc[indexes_in_cluster])
                     group_index+=1
         return groups_of_faultyRecords

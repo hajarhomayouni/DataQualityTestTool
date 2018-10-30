@@ -35,6 +35,9 @@ invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreproces
 #Detect faulty records
 testing=Testing()
 faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
+
+print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
+
 faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high']) 
 
 
@@ -42,5 +45,5 @@ faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([
 #Train a 5*5 SOM with 100 iterations
 #Exclude id columnand invalidity score for clustering
 som = SOM(5,5, len(faultyRecordFrame.columns.values)-2, 400)
-print som.clusterFaultyRecords(self, faultyRecordFramePreprocessed, faultyRecordFrame)
+print som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)
 
