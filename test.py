@@ -16,10 +16,10 @@ print dataFrame
 
 
 #Read csv data
-dataFrame=dataCollection.importData("testData.csv").head(1000)
+dataFrame=dataCollection.importData("testData.csv").head(100)
 
 #Preprocess data - The first column is assumed to be an ID column
-dataFramePreprocessed= dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1), ['gender_concept_id'], ['year_of_birth'])
+dataFramePreprocessed= dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high'])       
 
 
 #Tune and Train model
@@ -35,15 +35,18 @@ invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreproces
 #Detect faulty records
 testing=Testing()
 outlierFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, np.median(invalidityScores))
+outlierFramePreprocessed=dataCollection.preprocess(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high']) 
 
-#todo: exclude id colun for clustering
+
 #Cluster the faulty records
 #Train a 5*5 SOM with 100 iterations
+#Exclude id columnand invalidity score for clustering
 som = SOM(5,5, len(outlierFrame.columns.values)-2, 400)
-som.train(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values) 
+som.train(outlierFramePreprocessed.values) 
 #Map data to their closest neurons
-mapped= som.map_vects(outlierFrame.drop([outlierFrame.columns.values[0],'invalidityScore'],axis=1).values)
+mapped= som.map_vects(outlierFramePreprocessed.values)
 labels_list=[list(x) for x in mapped]
+print labels_list
 
 groups_of_outliers=[]
 group_index=0
