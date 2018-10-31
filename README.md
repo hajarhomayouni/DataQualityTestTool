@@ -21,3 +21,8 @@ pip install h2o
 Tensorflow
 
 pip install --upgrade tensorflow
+
+Install and activate python vitual enviroment
+
+virtualenv venv
+venv\Scripts\activate
