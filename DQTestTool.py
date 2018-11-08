@@ -1,10 +1,10 @@
 import functools
-from DataCollection import DataCollection
-from SOM import SOM
-from Testing import Testing
+from backendClasses.DataCollection import DataCollection
+from backendClasses.SOM import SOM
+from backendClasses.Testing import Testing
 import h2o
 import numpy as np
-from Autoencoder import Autoencoder
+from backendClasses.Autoencoder import Autoencoder
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
 #from sqlalchemy import create_engine
