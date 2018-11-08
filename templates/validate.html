@@ -1,0 +1,15 @@
+
+{% block header %}
+  <h1>{% block title %}Faulty Records{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    {% for item in data.split('@') %}
+    <label for="group">Group_{{loop.index0}}</label>
+    <input type="checkbox" name="Group_"+"{{loop.index0}}" id="Group_"+"{{loop.index0}}"/>
+        {{ item | safe }}
+    {% endfor %}
+    <input type="submit" name="revalidate" value="revalidate">
+  </form>
+{% endblock %}

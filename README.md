@@ -25,4 +25,4 @@ pip install --upgrade tensorflow
 Install and activate python vitual enviroment
 
 virtualenv venv
-venv\Scripts\activate
+. venv/bin/activate

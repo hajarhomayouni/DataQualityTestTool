@@ -1,0 +1,13 @@
+
+{% block header %}
+  <h1>{% block title %}Import Data{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <label for="dataPath">Data Path:</label>
+    <input name="dataPath" id="dataPath" required>
+    <input type="submit" value="import">
+  </form>
+
+{% endblock %}
