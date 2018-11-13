@@ -34,12 +34,11 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData(dataPath)
+            dataFrame=dataCollection.importData(dataPath).head(50)
             db=get_db()
             #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
-            #dataFrame.to_sql('testingRecords', con=db, if_exists='replace')
             
             return redirect(url_for('DQTestTool.validate'))
         flash(error)
@@ -51,10 +50,10 @@ def validate():
     db=get_db()
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords", con=db)
     dataCollection=DataCollection()
-    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
+    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1),['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high'])
 
     #Prepare Training data by removing actual faults
-    datasetId="measurement_person"
+    datasetId="random"
     truePositive=0.0
     truePositiveRate=0.0
     if request.method == "POST":
@@ -62,18 +61,16 @@ def validate():
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
             truePositive+=1
+            #dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords where "+dataFrameTrain.columns.values[1]+" not in ( SELECT "+dataFrameTrain.columns.values[1]+" FROM Faulty_records_"+str(i)+")", con=db)
             db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
+            #dataFrameTrain.to_sql('trainingRecords', con=db, if_exists='replace')
 
         truePositiveRate=truePositive/float(numberOfClusters)
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
-    #dataFrameTest=pd.read_sql(sql="SELECT * FROM testingRecords", con=db)
- 
     print dataFrameTrain.shape
-
-    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
-    #dataFrameTestPreprocessed=dataCollection.preprocess(dataFrameTest.drop([dataFrameTest.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
+    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1),['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high'])
 
     #TODO: Update threshold
 
@@ -95,7 +92,7 @@ def validate():
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, sum(invalidityScores)/len(invalidityScores))
 
     #print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_concept_id'], []) 
+    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_type_concept_id'], ['year_of_birth','value_as_number','range_low','range_high']) 
 
 
     #Cluster the faulty records

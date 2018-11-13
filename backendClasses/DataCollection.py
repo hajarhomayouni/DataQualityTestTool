@@ -17,7 +17,8 @@ class DataCollection:
         dataFrame=dataFrame.fillna(99999)
         #preprocess numeric columns
         min_max=MinMaxScaler()
-        dataFrame[numericColumns]=min_max.fit_transform(dataFrame[numericColumns])
+        if numericColumns:
+            dataFrame[numericColumns]=min_max.fit_transform(dataFrame[numericColumns])
         #preprocess categorical columns
         le=LabelEncoder()
         for col in categoricalColumns:

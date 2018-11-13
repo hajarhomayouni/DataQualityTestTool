@@ -5,11 +5,17 @@
 
 {% block content %}
   <form method="post">
+    <label for="numberOfClusters">Number of groups:</label>
+    <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
+    </br>
     {% for item in data.split('@') %}
     <label for="group">Group_{{loop.index0}}</label>
-    <input type="checkbox" name="Group_"+"{{loop.index0}}" id="Group_"+"{{loop.index0}}"/>
+    <input type="checkbox" name="Group" value="{{loop.index0}}"/>
         {{ item | safe }}
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
   </form>
+    <label for="scores">True/False Positive Rates: </label>
+    {{score | safe}}
+
 {% endblock %}
