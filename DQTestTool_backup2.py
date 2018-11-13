@@ -39,6 +39,7 @@ def importDataFrame():
             #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
+            #dataFrame.to_sql('testingRecords', con=db, if_exists='replace')
             
             return redirect(url_for('DQTestTool.validate'))
         flash(error)
@@ -50,7 +51,7 @@ def validate():
     db=get_db()
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords", con=db)
     dataCollection=DataCollection()
-    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1))
+    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
 
     #Prepare Training data by removing actual faults
     datasetId="measurement_person"
@@ -71,7 +72,8 @@ def validate():
  
     print dataFrameTrain.shape
 
-    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
+    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
+    #dataFrameTestPreprocessed=dataCollection.preprocess(dataFrameTest.drop([dataFrameTest.columns.values[0]], axis=1),['gender_concept_id','measurement_concept_id'], [])
 
     #TODO: Update threshold
 
@@ -93,7 +95,7 @@ def validate():
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, sum(invalidityScores)/len(invalidityScores))
 
     #print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
+    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), ['gender_concept_id','measurement_concept_id'], []) 
 
 
     #Cluster the faulty records

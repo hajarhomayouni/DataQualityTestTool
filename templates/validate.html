@@ -4,6 +4,9 @@
 {% endblock %}
 
 {% block content %}
+  <label for="description"> Please select the groups that are actually faulty. </br> Press revalidate to improve the fault detection approach. </br> </label>
+  </br>
+  </br>
   <form method="post">
     <label for="numberOfClusters">Number of groups:</label>
     <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
