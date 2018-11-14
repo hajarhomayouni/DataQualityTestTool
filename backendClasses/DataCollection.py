@@ -15,17 +15,20 @@ class DataCollection:
     @staticmethod
     def preprocess(dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(99999)
+        dataFrame=dataFrame.fillna(9999999999)
 
         categoricalColumns=[]
         numericColumns=[]
         for column in dataFrame.columns:
-            if dataFrame[column].dtype == np.float64:
-                categoricalColumns.append(column)
-            elif dataFrame[column].dtype == np.int64:
+            if all(float(x).is_integer() for x in dataFrame[column]):
+                categoricalColumns.append(column)            
+            else:
                 numericColumns.append(column)
 
 
+        print categoricalColumns
+        print numericColumns
+        #print dataFrame
         #preprocess numeric columns
         min_max=MinMaxScaler()
         if numericColumns:
@@ -36,6 +39,7 @@ class DataCollection:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])
+        dataFrame[categoricalColumns]=min_max.fit_transform(dataFrame[categoricalColumns])        
         return dataFrame
     @staticmethod
     def selectFeatures(dataFrame):
