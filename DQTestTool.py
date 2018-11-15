@@ -26,7 +26,7 @@ def importDataFrame():
     Import CSV data 
     """
     if request.method == 'POST':
-        dataPath = request.form['dataPath']
+        dataPath = request.form.get("dataPath")
         error = None
 
         if not dataPath:
@@ -83,23 +83,26 @@ def validate():
     hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=100),dataFrameTrainPreprocessed)
+    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200),dataFrameTrainPreprocessed)
 
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
+    print invalidityScores.shape
+    print "********"
+    print invalidityScores
 
     #Detect faulty records
     testing=Testing()
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores, sum(invalidityScores)/len(invalidityScores))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
 
-    #print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
+   # print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
+    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))
 
 
     #Cluster the faulty records
     #Train a 5*5 SOM with 400 iterations
     #Exclude id columnand invalidity score for clustering
-    som = SOM(5,5, len(faultyRecordFrame.columns.values)-2, 400)
+    som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
     dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)
     
     #show groups of faulty records as HTML tables

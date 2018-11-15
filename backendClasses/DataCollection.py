@@ -18,28 +18,20 @@ class DataCollection:
         dataFrame=dataFrame.fillna(9999999999)
 
         categoricalColumns=[]
-        numericColumns=[]
         for column in dataFrame.columns:
+            if dataFrame[column].dtype != np.number:
+                dataFrame[column]=dataFrame[column].apply(hash)
             if all(float(x).is_integer() for x in dataFrame[column]):
                 categoricalColumns.append(column)            
-            else:
-                numericColumns.append(column)
 
 
-        print categoricalColumns
-        print numericColumns
-        #print dataFrame
-        #preprocess numeric columns
-        min_max=MinMaxScaler()
-        if numericColumns:
-            dataFrame[numericColumns]=min_max.fit_transform(dataFrame[numericColumns])
-        #preprocess categorical columns
+        """min_max=MinMaxScaler()
         le=LabelEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])
-        dataFrame[categoricalColumns]=min_max.fit_transform(dataFrame[categoricalColumns])        
+        dataFrame[dataFrame.columns.values]=min_max.fit_transform(dataFrame[dataFrame.columns.values])"""       
         return dataFrame
     @staticmethod
     def selectFeatures(dataFrame):
