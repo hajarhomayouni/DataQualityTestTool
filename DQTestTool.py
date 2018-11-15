@@ -15,8 +15,6 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-#from dq.db import get_db
-
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
 
@@ -67,7 +65,6 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
-    #dataFrameTest=pd.read_sql(sql="SELECT * FROM testingRecords", con=db)
  
     print dataFrameTrain.shape
 
@@ -87,9 +84,6 @@ def validate():
 
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
-    print invalidityScores.shape
-    print "********"
-    print invalidityScores
 
     #Detect faulty records
     testing=Testing()
