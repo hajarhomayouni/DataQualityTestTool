@@ -1,3 +1,4 @@
+from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
 from backendClasses.SOM import SOM
@@ -32,13 +33,13 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData(dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
             #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
-            
-            return redirect(url_for('DQTestTool.validate'))
+            datasetId=dataPath.replace('.csv','#') + str(randint(1,10000))            
+            return redirect(url_for('DQTestTool.validate', datasetId=datasetId))
         flash(error)
 
     return render_template('import.html')
@@ -51,7 +52,7 @@ def validate():
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1))
 
     #Prepare Training data by removing actual faults
-    datasetId="measurement_person"
+    datasetId=request.args.get('datasetId')
     truePositive=0.0
     truePositiveRate=0.0
     if request.method == "POST":
@@ -72,8 +73,6 @@ def validate():
 
     #TODO: Update threshold
 
-    #store approach scores
-    scoreHtml=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db).to_html()
     
     #Tune and Train model
     autoencoder = Autoencoder()
@@ -110,8 +109,19 @@ def validate():
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
     if request.method == 'POST':
-     return redirect(url_for('DQTestTool.validate'))
+        if request.form.get('evaluations'):
+            return redirect(url_for('DQTestTool.evaluations', datasetId=datasetId))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html), score=scoreHtml, numberOfClusters=numberOfClusters)
+    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters)
      
+@bp.route('/evaluations', methods=["GET","POST"])
+def evaluations():
+    db=get_db()
+    datasetId=request.args.get('datasetId')
+    #store approach scores
+    scoreHtml=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db).to_html()
+    return render_template('evaluations.html',  score=scoreHtml)
+
+
+
 

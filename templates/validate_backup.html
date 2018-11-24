@@ -1,6 +1,6 @@
+
 {% block header %}
   <h1>{% block title %}Faulty Records{% endblock %}</h1>
-  <link rel="stylesheet" type="text/css" href="style.css">
 {% endblock %}
 
 {% block content %}
@@ -17,10 +17,8 @@
         {{ item | safe }}
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
-    <input type="submit" name="evaluations" value="evaluations">
-
-<!--    <a href="{{ url_for('DQTestTool.evaluations', datasetId=datasetId) }}">evaluations</a> -->
   </form>
-  <!-- <label for="scores">True/False Positive Rates: </label> -->
+    <label for="scores">True/False Positive Rates: </label>
+    {{score | safe}}
 
 {% endblock %}

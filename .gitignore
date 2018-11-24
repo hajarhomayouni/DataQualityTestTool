@@ -1,5 +1,6 @@
 venv/
 
+datasets/
 *.csv
 
 *.pyc
