@@ -134,19 +134,32 @@ def validate():
 def evaluations():
     db=get_db()
     datasetId=request.args.get('datasetId')
+
+    #A
     faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_all", con=db)
     A=set(faulty_records[faulty_records.columns.values[0]].tolist())
+
+    #TF
+    TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
+    TF=set(TFdataFrame['fault_id'].unique().tolist())
+
+    #E
+    #TODO
+
+    evaluation=Evaluation()
+    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
     
-    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)
+    #statistics    
+    TR=evaluation.truePositiveRate(A,TF)
+    TPGR=evaluation.truePositiveGrowthRate(score)
+    NR=evaluation.numberOfRuns(score)
+
     beginingTPR=score['true_positive_rate'].iloc[0]
     endingTPR=score['true_positive_rate'].iloc[-1]
     NR=float(len(score['true_positive_rate'].tolist()))
     TPGR=((endingTPR/beginingTPR)**(1/NR))-1
 
-    scoreHtml=score.to_html()
-    evaluation=Evaluation()
-    TF=evaluation.trulyDetectedFaultyRecords(datasetId, db)
-    return render_template('evaluations.html',  score=scoreHtml, TF=float(len(TF)), A=float(len(A)), NR=NR, TPGR=TPGR)
+    return render_template('evaluations.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TR=TR, NR=NR, TPGR=TPGR)
 
 
 
