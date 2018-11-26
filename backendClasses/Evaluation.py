@@ -2,6 +2,7 @@ import csv
 import pandas as pd
 
 class Evaluation:
+    @staticmethod
     def csvToSet(csvFile):
         recordSet=set()
         with open(csvFile, 'rt') as csvFileRead:
@@ -22,16 +23,19 @@ class Evaluation:
         return float(len(E.difference(A)))/float(len(E))
 
     @staticmethod
-    def trulyDetectedFaultyRecords(datasetId, con):
-        TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=con )
-        TFlist=TFdataFrame['fault_id'].unique().tolist()
-        return set(TFlist)
+    def truePositiveGrowthRate(score):
+        beginingTPR=score['true_positive_rate'].iloc[0]
+        endingTPR=score['true_positive_rate'].iloc[-1]
+        NR=float(len(score['true_positive_rate'].tolist()))
+        return ((endingTPR/beginingTPR)**(1/NR))-1
+    
+    @staticmethod
+    def numberOfRuns(score):
+        return float(len(score['true_positive_rate'].tolist()))
 
+    @staticmethod
     def truePositiveRate(A, TF):
         return float(len(TF))/float(len(A))
-
-    def save(datasetInfo, PD, ND, UD, TP):
-        return 1
 
     def truePositiveRateByTime(datasetInfo):
         return 1
