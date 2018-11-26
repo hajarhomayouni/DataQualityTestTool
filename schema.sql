@@ -11,3 +11,8 @@ CREATE TABLE scores (
   false_positive_rate Float,
   true_positive_rate Float
 );
+
+CREATE TABLE TF (
+	fault_id INTEGER,
+	dataset_id TEXT
+);

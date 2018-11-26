@@ -1,10 +1,23 @@
 {% block header %}
-  <h1>{% block title %}Faulty Records{% endblock %}</h1>
+  <h1>{% block title %}Evaluations{% endblock %}</h1>
   <link rel="stylesheet" type="text/css" href="style.css">
 {% endblock %}
 
 {% block content %}
-  </br>
+<p>
+ A: Set of faulty records detected by our approach </br>
+ E: Set of faulty records detected by existing approach </br>
+TF: Set of truly detected faulty records by our approach </br>
+|A|:{{A}}</br>
+|E|:3</br>
+|TF|:{{TF}}</br>
+
+
+True Positive Rate (TPR):|TF|/|A|={{TF/A}}</br> 
+Number of Runs (NR): {{NR}}</br>
+True Positive Growth Rate (TPGR)= ((endingTPR/beginingTPR)^(1/NR))-1={{TPGR}}</br>
+</p>
+</br>
   </br>
   <form method="get">
 <label for="scores">True/False Positive Rates: </label>

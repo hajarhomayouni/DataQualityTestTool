@@ -9,6 +9,7 @@ from backendClasses.Autoencoder import Autoencoder
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
 from DataQualityTestTool.db import get_db
+from backendClasses.Evaluation import Evaluation
 import datetime
 
 from flask import (
@@ -33,12 +34,12 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).head(20)
             db=get_db()
             #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
-            datasetId=dataPath.replace('.csv','#') + str(randint(1,10000))            
+            datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))            
             return redirect(url_for('DQTestTool.validate', datasetId=datasetId))
         flash(error)
 
@@ -48,6 +49,8 @@ def importDataFrame():
 def validate():
     db=get_db()
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords", con=db)
+    TFdataFrame=pd.read_sql(sql="SELECT * FROM TF", con=db)
+
     dataCollection=DataCollection()
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1))
 
@@ -59,11 +62,13 @@ def validate():
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            truePositive+=1
+            #truePositive+=1
             db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
+            TFdataFrame=TFdataFrame.append(pd.read_sql('SELECT DISTINCT '+ dataFrame.columns.values[0]+ ' AS fault_id,"'+datasetId+'" AS dataset_id FROM Faulty_records_'+str(i),con=db))
+            print TFdataFrame
+            if not TFdataFrame.empty:
+                TFdataFrame.to_sql('TF',con=db,if_exists='replace',index=False)
 
-        truePositiveRate=truePositive/float(numberOfClusters)
-        db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
  
@@ -87,6 +92,17 @@ def validate():
     #Detect faulty records
     testing=Testing()
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
+
+    #store all the detected faulty records in db
+    faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace')
+
+    #store TP in database for this run
+    if not TFdataFrame.empty:
+        #TFdataFrame=TFdataFrame.drop_duplicates(keep='first')
+        #print TFdataFrame
+        truePositiveRate=float(len(TFdataFrame['fault_id'].unique().tolist()))/float(faultyRecordFrame.shape[0])
+        db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
+
 
    # print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
     faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))
@@ -118,9 +134,19 @@ def validate():
 def evaluations():
     db=get_db()
     datasetId=request.args.get('datasetId')
-    #store approach scores
-    scoreHtml=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db).to_html()
-    return render_template('evaluations.html',  score=scoreHtml)
+    faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_all", con=db)
+    A=set(faulty_records[faulty_records.columns.values[0]].tolist())
+    
+    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)
+    beginingTPR=score['true_positive_rate'].iloc[0]
+    endingTPR=score['true_positive_rate'].iloc[-1]
+    NR=float(len(score['true_positive_rate'].tolist()))
+    TPGR=((endingTPR/beginingTPR)**(1/NR))-1
+
+    scoreHtml=score.to_html()
+    evaluation=Evaluation()
+    TF=evaluation.trulyDetectedFaultyRecords(datasetId, db)
+    return render_template('evaluations.html',  score=scoreHtml, TF=float(len(TF)), A=float(len(A)), NR=NR, TPGR=TPGR)
 
 
 
