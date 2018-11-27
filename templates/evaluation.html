@@ -4,17 +4,16 @@
 {% endblock %}
 
 {% block content %}
-<p>
+<p style="border:3px; border-style:solid; border-color:#FFC0CB; padding: 1em;font-family:courier;">
  A: Set of faulty records detected by our approach </br>
  E: Set of faulty records detected by existing approach </br>
-TF: Set of truly detected faulty records by our approach </br>
-</br>
-</br>
+TF: Set of actual faulty records detected  by our approach </br>
+</p>
+
+<p style="border:3px; border-style:solid; border-color:#008000; padding: 1em;font-family:courier;">
 |A|:{{A}}</br>
 |E|:{{E}}</br>
 |TF|:{{TF}}</br>
-</br>
-</br>
 True Positive Rate (TPR): |TF|/|A|= {{TPR}}</br> 
 Number of Runs (NR)= {{NR}}</br>
 True Positive Growth Rate (TPGR): ((endingTPR/beginingTPR)^(1/NR))-1= {{TPGR}}</br>
@@ -23,9 +22,9 @@ Newly Detected faulty records (ND): |TF-E|/|A|= {{ND}} </br>
 Undetected faulty records (UD): |E-A|/|E|= {{UD}} </br>
 
 </p>
-</br>
- </br>
- <form method="get">
+
+
+ <form method="get" style="font-family:courier;">
 <label for="scores">True/False Positive Rates: </label>
 
 {{score|safe}}

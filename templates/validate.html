@@ -16,6 +16,8 @@
     <input type="checkbox" name="Group" value="{{loop.index0}}"/>
         {{ item | safe }}
     {% endfor %}
+    <input type="submit" name="revalidate" value="revalidate">
+    </br>
 
     <label for="knownFaults">Known Faults:</label>    
     <select class="form-control" id="knownFaults" name="knownFaults">
@@ -23,7 +25,6 @@
     	    <option value="murdock_measurement_person.csv">murdock_measurement_person.csv</option>
     </select>
 
-    <input type="submit" name="revalidate" value="revalidate">
     <input type="submit" name="evaluation" value="evaluation">
   </form>
 {% endblock %}
