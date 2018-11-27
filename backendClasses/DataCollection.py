@@ -4,6 +4,7 @@ from sklearn.preprocessing import scale
 from sklearn.preprocessing import LabelEncoder
 import pandas as pd
 import numpy as np
+import csv
 
 class DataCollection:
 
@@ -37,3 +38,14 @@ class DataCollection:
     def selectFeatures(dataFrame):
         #use feature selection/prioritization methods
         return dataFrame
+
+
+
+    @staticmethod
+    def csvToSet(csvFile):        
+        recordSet=set()
+        with open(csvFile, 'rt') as csvFileRead:
+            spamreader = csv.reader(csvFileRead, delimiter=',')
+            for row in spamreader:
+                recordSet=recordSet.union(set(row))
+        return recordSet

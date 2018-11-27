@@ -34,7 +34,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath).head(20)
+            dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
             #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
@@ -65,14 +65,12 @@ def validate():
             #truePositive+=1
             db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
             TFdataFrame=TFdataFrame.append(pd.read_sql('SELECT DISTINCT '+ dataFrame.columns.values[0]+ ' AS fault_id,"'+datasetId+'" AS dataset_id FROM Faulty_records_'+str(i),con=db))
-            print TFdataFrame
             if not TFdataFrame.empty:
                 TFdataFrame.to_sql('TF',con=db,if_exists='replace',index=False)
 
 
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
  
-    print dataFrameTrain.shape
 
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
 
@@ -94,7 +92,7 @@ def validate():
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
 
     #store all the detected faulty records in db
-    faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace')
+    faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
     #store TP in database for this run
     if not TFdataFrame.empty:
@@ -117,7 +115,7 @@ def validate():
     #show groups of faulty records as HTML tables
     i=0
     for dataFrame in dataFrames:
-        dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace')
+        dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
         i=i+1
     numberOfClusters=i
     faulty_records_html=[]
@@ -125,42 +123,46 @@ def validate():
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
     if request.method == 'POST':
-        if request.form.get('evaluations'):
-            return redirect(url_for('DQTestTool.evaluations', datasetId=datasetId))
+        knownFaults = request.form.get("knownFaults")
+        if request.form.get('evaluation'):
+            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
     return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters)
      
-@bp.route('/evaluations', methods=["GET","POST"])
-def evaluations():
+@bp.route('/evaluation', methods=["GET","POST"])
+def evaluation():
     db=get_db()
     datasetId=request.args.get('datasetId')
+    knownFaults=request.args.get('knownFaults')
 
     #A
     faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_all", con=db)
-    A=set(faulty_records[faulty_records.columns.values[0]].tolist())
-
+    A=set(faulty_records[faulty_records.columns.values[0]].astype(str).tolist())
+    
     #TF
     TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
-    TF=set(TFdataFrame['fault_id'].unique().tolist())
-
+    TF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
     #E
-    #TODO
+    E=set()
+    if knownFaults:
+        dataCollection=DataCollection()
+        E=dataCollection.csvToSet('datasets/PD/'+str(knownFaults))
+    
 
     evaluation=Evaluation()
     score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
     
     #statistics    
-    TR=evaluation.truePositiveRate(A,TF)
+    TPR=evaluation.truePositiveRate(A,TF)
     TPGR=evaluation.truePositiveGrowthRate(score)
     NR=evaluation.numberOfRuns(score)
-
-    beginingTPR=score['true_positive_rate'].iloc[0]
-    endingTPR=score['true_positive_rate'].iloc[-1]
-    NR=float(len(score['true_positive_rate'].tolist()))
-    TPGR=((endingTPR/beginingTPR)**(1/NR))-1
-
-    return render_template('evaluations.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TR=TR, NR=NR, TPGR=TPGR)
+    PD=evaluation.previouslyDetectedFaultyRecords(A,E)
+    ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
+    UD=evaluation.unDetectedFaultyRecords(A, E)
 
 
+    #save
+    #TODO
 
+    return render_template('evaluation.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
