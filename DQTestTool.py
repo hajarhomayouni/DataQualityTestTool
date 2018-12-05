@@ -17,6 +17,11 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import io
+import random
+from flask import Response
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
 
@@ -84,9 +89,16 @@ def validate():
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
     bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200),dataFrameTrainPreprocessed)
 
+    #print extracted features
+    #print h2o.deepfeatures(bestModel,dataFrameTrainPreprocessed, layer =2)
+
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
 
+    #Store invalidity scores per feature
+    invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
+    invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
+    invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False) 
     #Detect faulty records
     testing=Testing()
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
@@ -119,15 +131,26 @@ def validate():
         i=i+1
     numberOfClusters=i
     faulty_records_html=[]
+    cluster_scores_fig_url=[]
     for i in range(int(numberOfClusters)):
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
+        #
+        cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
+        #print cluster_scores
+        X=dataFrame.columns.values[1:-1]
+        Y=cluster_scores.mean().tolist()[1:]
+        print X
+        print Y
+        cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+
+        #
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters)
+    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

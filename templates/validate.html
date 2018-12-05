@@ -4,21 +4,25 @@
 {% endblock %}
 
 {% block content %}
+  <form method="post" style="font-family:courier;">
+  <p style=>
   <label for="description"> Please select the groups that are actually faulty. </br> Press revalidate to improve the fault detection approach. </br> </label>
-  </br>
-  </br>
-  <form method="post">
+  </p>
+ 
+  <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
     <label for="numberOfClusters">Number of groups:</label>
     <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
     </br>
-    {% for item in data.split('@') %}
-    <label for="group">Group_{{loop.index0}}</label>
-    <input type="checkbox" name="Group" value="{{loop.index0}}"/>
-        {{ item | safe }}
+    {%for item in data.split('@')%}
+	    <label for="group">Group_{{loop.index0}}</label>
+	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
+	    <img src='{{fig_urls[loop.index0]}}'  style="width:300px;height:300px;"></img></br>
+	    {{ item | safe }}</br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
     </br>
-
+  </p>
+  <p style="border:3px; border-style: solid;  border-color:#F08080; ">
     <label for="knownFaults">Known Faults:</label>    
     <select class="form-control" id="knownFaults" name="knownFaults">
     	    <option value="none">None</option>
@@ -26,5 +30,6 @@
     </select>
 
     <input type="submit" name="evaluation" value="evaluation">
+  </p>
   </form>
 {% endblock %}

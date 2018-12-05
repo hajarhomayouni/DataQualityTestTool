@@ -1,13 +1,15 @@
-
 {% block header %}
   <h1>{% block title %}Faulty Records{% endblock %}</h1>
+  <link rel="stylesheet" type="text/css" href="style.css">
 {% endblock %}
 
 {% block content %}
+  <form method="post" style="font-family:courier;">
+  <p style=>
   <label for="description"> Please select the groups that are actually faulty. </br> Press revalidate to improve the fault detection approach. </br> </label>
-  </br>
-  </br>
-  <form method="post">
+  </p>
+ 
+  <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
     <label for="numberOfClusters">Number of groups:</label>
     <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
     </br>
@@ -15,10 +17,19 @@
     <label for="group">Group_{{loop.index0}}</label>
     <input type="checkbox" name="Group" value="{{loop.index0}}"/>
         {{ item | safe }}
+    <img src='{{fig_urls[0]}}'></img>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
-  </form>
-    <label for="scores">True/False Positive Rates: </label>
-    {{score | safe}}
+    </br>
+  </p>
+  <p style="border:3px; border-style: solid;  border-color:#F08080; ">
+    <label for="knownFaults">Known Faults:</label>    
+    <select class="form-control" id="knownFaults" name="knownFaults">
+    	    <option value="none">None</option>
+    	    <option value="murdock_measurement_person.csv">murdock_measurement_person.csv</option>
+    </select>
 
+    <input type="submit" name="evaluation" value="evaluation">
+  </p>
+  </form>
 {% endblock %}
