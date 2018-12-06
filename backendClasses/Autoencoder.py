@@ -1,6 +1,8 @@
 from PatternDiscovery import PatternDiscovery
 import h2o
 from h2o.grid.grid_search import H2OGridSearch
+from sklearn import preprocessing
+import pandas as pd
 
 class Autoencoder(PatternDiscovery):
 
@@ -22,12 +24,15 @@ class Autoencoder(PatternDiscovery):
         testDataHex=h2o.H2OFrame(testData)
         recon_error = model.anomaly(testDataHex)
         recon_error_np=recon_error.as_data_frame().values
-        return recon_error_np.ravel()
+        recon_error_preprocessed=preprocessing.normalize(recon_error_np, norm='l2',axis=0)
+        return recon_error_preprocessed.ravel()
 
     @staticmethod
     def assignInvalidityScorePerFeature(model, testDataFrame):
         testData=testDataFrame.values        
         testDataHex=h2o.H2OFrame(testData)
         recon_error = model.anomaly(testDataHex, per_feature = True)
-        return recon_error.as_data_frame()
+        recon_error_preprocessed=preprocessing.normalize(recon_error.as_data_frame(), norm='l2',axis=0)
+        print recon_error_preprocessed
+        return pd.DataFrame.from_records(recon_error_preprocessed)
 

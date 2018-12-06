@@ -87,7 +87,8 @@ def validate():
     hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200),dataFrameTrainPreprocessed)
+    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto'),dataFrameTrainPreprocessed)
+    #,
 
     #print extracted features
     #print h2o.deepfeatures(bestModel,dataFrameTrainPreprocessed, layer =2)
@@ -99,6 +100,7 @@ def validate():
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
     invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False) 
+
     #Detect faulty records
     testing=Testing()
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
@@ -140,8 +142,6 @@ def validate():
         #print cluster_scores
         X=dataFrame.columns.values[1:-1]
         Y=cluster_scores.mean().tolist()[1:]
-        print X
-        print Y
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #
