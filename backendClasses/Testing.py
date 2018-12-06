@@ -17,6 +17,15 @@ class Testing:
             outlierFrame.loc[outlier]=testDataFrame.iloc[outlier_indexes[outlier]]
         outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
         return outlierFrame
+    
+    @staticmethod
+    def detectNormalRecords(testDataFrame, invalidityScores, threshold):
+        normalFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
+        normal_indexes, = np.where(invalidityScores <= threshold)
+        for normal in range(len(normal_indexes)):
+            normalFrame.loc[normal]=testDataFrame.iloc[normal_indexes[normal]]
+        normalFrame['invalidityScore']=invalidityScores[normal_indexes]
+        return normalFrame
 
     @abc.abstractmethod
     def clusterFaultyRecords(self, faultyRecordFramePreprocessed, faultyRecordFrame):
