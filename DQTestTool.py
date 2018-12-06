@@ -88,10 +88,6 @@ def validate():
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
     bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto'),dataFrameTrainPreprocessed)
-    #,
-
-    #print extracted features
-    #print h2o.deepfeatures(bestModel,dataFrameTrainPreprocessed, layer =2)
 
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
@@ -103,15 +99,16 @@ def validate():
 
     #Detect faulty records
     testing=Testing()
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,0) #sum(invalidityScores)/len(invalidityScores))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))
+    
+    #Detect normal records
+    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))
 
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
     #store TP in database for this run
     if not TFdataFrame.empty:
-        #TFdataFrame=TFdataFrame.drop_duplicates(keep='first')
-        #print TFdataFrame
         truePositiveRate=float(len(TFdataFrame['fault_id'].unique().tolist()))/float(faultyRecordFrame.shape[0])
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
@@ -137,14 +134,21 @@ def validate():
     for i in range(int(numberOfClusters)):
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
-        #
+        
+        #Show descriptive graph for each group
         cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
-        #print cluster_scores
         X=dataFrame.columns.values[1:-1]
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-
-        #
+        
+        #Use decision trees
+        normalRecordFrame['label']=0
+        print normalRecordFrame
+        faulty_records['label']=1
+        print faulty_records
+        decisionTreeTrainingFrame= result = pd.concat([normalRecordFrame,normalRecordFrame])
+        print decisionTreeTrainingFrame
+        
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
@@ -165,6 +169,7 @@ def evaluation():
     #TF
     TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
     TF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
+    
     #E
     E=set()
     if knownFaults:
@@ -183,9 +188,8 @@ def evaluation():
     ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
     UD=evaluation.unDetectedFaultyRecords(A, E)
 
-
-    #save
     #TODO
+    #save
 
     return render_template('evaluation.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
