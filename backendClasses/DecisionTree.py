@@ -56,4 +56,26 @@ class DecisionTree:
                codelines.append("{}return {}".format(indent, tree_.value[node]))
        recurse(0, 1)
        return codelines
+    
+     @staticmethod
+     def interpretTree(treeCodeLines):
+        outStr=""
+        lineIndex=0
+        for line in treeCodeLines:
+            if "return [[0" in line:
+                if "<" in treeCodeLines[lineIndex-1]:
+                    outStr+="Small value of "+ treeCodeLines[lineIndex-1].replace(" if ","").replace("else", "").replace("#","")+"\n"+"for :"
+                elif ">" in line[lineIndex-1]:
+                    outStr+="Large value of "+ treeCodeLines[lineIndex-1].replace(" if ","").replace("else", "").replace("#","")+"\n"+"for :"
+                for j in reversed(range(0,lineIndex-2)):
+                    if " if " in treeCodeLines[j]:
+                        outStr+=treeCodeLines[j] + " AND "+ "\n"
+                    elif "return" in treeCodeLines[j]:
+                        j=j-2
+                outStr+="************"
+                
+          return outStr
+                    
+                    
+            
 
