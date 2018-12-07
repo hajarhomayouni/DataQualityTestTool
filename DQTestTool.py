@@ -133,6 +133,7 @@ def validate():
     faulty_records_html=[]
     cluster_scores_fig_url=[]
     cluster_dt_url=[]
+    cluster_interpretation=[]
     for i in range(int(numberOfClusters)):
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
@@ -151,7 +152,8 @@ def validate():
         decisionTree=DecisionTree()
         treeModel=decisionTree.trainTree(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         cluster_dt_url.append(decisionTree.visualizeTree(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        print(decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        treeCodeLines=decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        cluster_interpretation.append(decisionTree.interpretTree(treeCodeLines))
         #
         
     if request.method == 'POST':
@@ -159,7 +161,7 @@ def validate():
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url)
+    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():
