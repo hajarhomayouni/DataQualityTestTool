@@ -1,6 +1,7 @@
 from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
+from backendClasses.DecisionTree import DecisionTree
 from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
@@ -131,6 +132,7 @@ def validate():
     numberOfClusters=i
     faulty_records_html=[]
     cluster_scores_fig_url=[]
+    cluster_dt_url=[]
     for i in range(int(numberOfClusters)):
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
@@ -143,18 +145,21 @@ def validate():
         
         #Use decision trees
         normalRecordFrame['label']=0
-        print normalRecordFrame
         faulty_records['label']=1
-        print faulty_records
-        decisionTreeTrainingFrame= result = pd.concat([normalRecordFrame,normalRecordFrame])
-        print decisionTreeTrainingFrame
+        decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        decisionTree=DecisionTree()
+        treeModel=decisionTree.trainTree(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
+        cluster_dt_url.append(decisionTree.visualizeTree(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        print(decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        #
         
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url)
+    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():
