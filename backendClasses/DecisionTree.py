@@ -1,7 +1,7 @@
+from Interpretation import Interpretation
 from sklearn import tree
 import graphviz 
 import pydot
-#from io import StringIO
 from io import BytesIO as StringIO
 import io
 import base64
@@ -11,7 +11,7 @@ from sklearn.tree import _tree
 
 
 
-class DecisionTree:
+class DecisionTree(Interpretation):
 
     @staticmethod
     def train(trainDataFrame, featuresList, target):
