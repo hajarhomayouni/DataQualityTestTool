@@ -152,10 +152,10 @@ def validate():
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         decisionTree=DecisionTree()
-        treeModel=decisionTree.trainTree(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
-        cluster_dt_url.append(decisionTree.visualizeTree(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        treeCodeLines=decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
-        cluster_interpretation.append(decisionTree.interpretTree(treeCodeLines))
+        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
+        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        #treeCodeLines=decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        cluster_interpretation.append(decisionTree.interpret(treeModel))
         #
         
     if request.method == 'POST':
