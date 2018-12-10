@@ -146,7 +146,7 @@ def validate():
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         
-        #Use decision trees
+        #Interpret each cluster
         normalRecordFrame['label']=0
         faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
