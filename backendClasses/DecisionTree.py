@@ -65,23 +65,19 @@ class DecisionTree:
            lineIndex+=1
            if "return [[0." in line:
                pIndex=lineIndex-1
-               #print str(pIndex)+":"+treeCodeLines[pIndex]
                if treeCodeLines[pIndex].find('<')>=0:
                    outStr+="Small value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
                elif treeCodeLines[pIndex].find('>')>=0:
                    outStr+="Large value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
                j=lineIndex-2
                while j>0:
-                    #print str(j)+":"+treeCodeLines[j]
                     if "if " in treeCodeLines[j]:
-                        #print "has if"
                         outStr+=treeCodeLines[j].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ") + " AND "
                     elif "return [[" in treeCodeLines[j]:
-                        #print "has return"
                         j=j-1                    
                     j=j-1
                outStr=outStr[:-5]
-               outStr+="*************"
+               outStr+=". "
        return outStr
                     
                     
