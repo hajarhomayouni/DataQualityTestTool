@@ -154,8 +154,7 @@ def validate():
         decisionTree=DecisionTree()
         treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        #treeCodeLines=decisionTree.tree_to_code(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
-        cluster_interpretation.append(decisionTree.interpret(treeModel))
+        cluster_interpretation.append(decisionTree.interpret(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
         #
         
     if request.method == 'POST':
