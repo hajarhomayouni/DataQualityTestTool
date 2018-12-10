@@ -58,8 +58,8 @@ class DecisionTree:
        return codelines
    
     @staticmethod
-    def interpret(treeModel):
-       treeCodeLines=self.treeToCode(treeModel)
+    def interpret(treeModel, featuresList):
+       treeCodeLines=self.treeToCode(treeModel, featuresList)
        outStr=""
        lineIndex=-1
        for line in treeCodeLines:
