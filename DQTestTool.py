@@ -100,10 +100,12 @@ def validate():
 
     #Detect faulty records
     testing=Testing()
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))
+    
+    
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.25))
     
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))
+    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.25))
 
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
