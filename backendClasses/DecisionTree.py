@@ -14,14 +14,14 @@ from sklearn.tree import _tree
 class DecisionTree:
 
     @staticmethod
-    def trainTree(trainDataFrame, featuresList, target):
+    def train(trainDataFrame, featuresList, target):
         dt = tree.DecisionTreeClassifier()
         return dt.fit(trainDataFrame[featuresList], trainDataFrame[target])
 
     
         
     @staticmethod
-    def visualizeTree(treeModel, featuresList, targetValues):
+    def visualize(treeModel, featuresList, targetValues):
         dot_data=tree.export_graphviz(treeModel, out_file=None,
                                       feature_names=featuresList,  
                                       class_names=targetValues,  
@@ -34,14 +34,14 @@ class DecisionTree:
 
        
     @staticmethod
-    def tree_to_code(tree, feature_names):
+    def treeToCode(treeModel, featuresList):
        codelines = []
-       tree_ = tree.tree_
+       tree_ = treeModel.tree_
        feature_name = [
-               feature_names[i] if i != _tree.TREE_UNDEFINED else "undefined!"
+               featuresList[i] if i != _tree.TREE_UNDEFINED else "undefined!"
                for i in tree_.feature
                ]
-       codelines.append("def tree({}):".format(", ".join(feature_names)))
+       codelines.append("def tree({}):".format(", ".join(featuresList)))
        
        def recurse(node, depth):
            indent = "      " * depth
@@ -58,7 +58,8 @@ class DecisionTree:
        return codelines
    
     @staticmethod
-    def interpretTree(treeCodeLines):
+    def interpret(treeModel):
+       treeCodeLines=self.treeToCode(treeModel)
        outStr=""
        lineIndex=-1
        for line in treeCodeLines:
