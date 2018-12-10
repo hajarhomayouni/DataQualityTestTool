@@ -32,7 +32,6 @@ class DecisionTree(Interpretation):
         graph_url=base64.b64encode(graph_png).decode('utf-8')
         return 'data:image/png;base64,{}'.format(graph_url)
 
-       
     @staticmethod
     def treeToCode(treeModel, featuresList):
        codelines = []
@@ -57,9 +56,8 @@ class DecisionTree(Interpretation):
        recurse(0, 1)
        return codelines
    
-    @staticmethod
-    def interpret(treeModel, featuresList):
-       treeCodeLines=self.treeToCode(treeModel, featuresList)
+    @staticmethod 
+    def interpret(treeCodeLines):
        outStr=""
        lineIndex=-1
        for line in treeCodeLines:

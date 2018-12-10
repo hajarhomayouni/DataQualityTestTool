@@ -102,10 +102,10 @@ def validate():
     testing=Testing()
     
     
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.25))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))
     
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.25))
+    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))
 
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
@@ -154,7 +154,8 @@ def validate():
         decisionTree=DecisionTree()
         treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        cluster_interpretation.append(decisionTree.interpret(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        cluster_interpretation.append(decisionTree.interpret(treeCodeLines))
         #
         
     if request.method == 'POST':
