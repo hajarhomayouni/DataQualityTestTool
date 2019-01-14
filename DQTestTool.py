@@ -79,9 +79,6 @@ def validate():
  
 
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
-
-    #TODO: Update threshold
-
     
     #Tune and Train model
     autoencoder = Autoencoder()
@@ -93,24 +90,23 @@ def validate():
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
 
-    #Store invalidity scores per feature
+    #َAssign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
     invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False) 
 
     #Detect faulty records
-    testing=Testing()
-    
-    
+    testing=Testing()  
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
     
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
-
+    #TODO: Update threshold
+    
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
-    #store TP in database for this run
+    #store TPR in database for this run
     if not TFdataFrame.empty:
         truePositiveRate=float(len(TFdataFrame['fault_id'].unique().tolist()))/float(faultyRecordFrame.shape[0])
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
@@ -118,14 +114,11 @@ def validate():
 
     faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))
 
-
     #Cluster the faulty records
-    #Train a 5*5 SOM with 400 iterations
-    #Exclude id columnand invalidity score for clustering
     som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
     dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)
     
-    #show groups of faulty records as HTML tables
+    #Show groups of faulty records as HTML tables
     i=0
     for dataFrame in dataFrames:
         dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
@@ -196,8 +189,7 @@ def evaluation():
     ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
     UD=evaluation.unDetectedFaultyRecords(A, E)
 
-    #TODO
-    #save
+    #TODO:save
 
     return render_template('evaluation.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
