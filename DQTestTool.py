@@ -42,7 +42,6 @@ def importDataFrame():
             dataCollection=DataCollection()
             dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
-            #todo: assign random name for dataRecords table
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
             datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))            
@@ -68,16 +67,13 @@ def validate():
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            #truePositive+=1
             db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
+            #TFdataFrame: stores all faults
             TFdataFrame=TFdataFrame.append(pd.read_sql('SELECT DISTINCT '+ dataFrame.columns.values[0]+ ' AS fault_id,"'+datasetId+'" AS dataset_id FROM Faulty_records_'+str(i),con=db))
             if not TFdataFrame.empty:
                 TFdataFrame.to_sql('TF',con=db,if_exists='replace',index=False)
-
-
+    
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
- 
-
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
     
     #Tune and Train model
@@ -106,15 +102,14 @@ def validate():
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
+
     #store TPR in database for this run
     if not TFdataFrame.empty:
         truePositiveRate=float(len(TFdataFrame['fault_id'].unique().tolist()))/float(faultyRecordFrame.shape[0])
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
-
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))
-
     #Cluster the faulty records
+    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))   
     som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
     dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)
     
@@ -148,7 +143,7 @@ def validate():
         cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
         treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
         cluster_interpretation.append(decisionTree.interpret(treeCodeLines))
-        #
+       
         
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
