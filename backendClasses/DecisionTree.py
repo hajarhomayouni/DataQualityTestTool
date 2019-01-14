@@ -8,6 +8,7 @@ import base64
 from IPython.display import Image
 from graphviz import Source
 from sklearn.tree import _tree
+import re
 
 
 
@@ -62,12 +63,12 @@ class DecisionTree(Interpretation):
        lineIndex=-1
        for line in treeCodeLines:
            lineIndex+=1
-           if "return [[0." in line:
+           if re.search('return\s+\[\[\s*0\.',line):
                pIndex=lineIndex-1
                if treeCodeLines[pIndex].find('<')>=0:
-                   outStr+="Small value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
+                   outStr+="{Small value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
                elif treeCodeLines[pIndex].find('>')>=0:
-                   outStr+="Large value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
+                   outStr+="{Large value of "+ treeCodeLines[pIndex].replace(" if ","").replace("else", "").replace("#","").replace(":","").replace("  ", " ")+" FOR "
                j=lineIndex-2
                while j>0:
                     if "if " in treeCodeLines[j]:
@@ -76,7 +77,7 @@ class DecisionTree(Interpretation):
                         j=j-1                    
                     j=j-1
                outStr=outStr[:-5]
-               outStr+=". "
+               outStr+="} "
        return outStr
                     
                     

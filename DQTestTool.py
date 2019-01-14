@@ -102,10 +102,10 @@ def validate():
     testing=Testing()
     
     
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
     
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))
+    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
 
     #store all the detected faulty records in db
     faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
@@ -116,7 +116,6 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
 
-   # print faultyRecordFrame.sort_values(by=['invalidityScore'],ascending=False)
     faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))
 
 

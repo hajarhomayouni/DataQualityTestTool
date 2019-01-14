@@ -18,7 +18,7 @@
 	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
 	    <img src='{{fig_urls[loop.index0]}}'  style="width:300px;height:300px;"></img></br>
 	    <img src='{{cluster_dt_url[loop.index0]}}'  style="width:300px;height:300px;"></img></br>
-	    <label for="cluster">{{cluster_interpretation[loop.index0]}}</label></br>
+	    <label for="cluster">{{cluster_interpretation[loop.index0]|safe}}</label></br>
 	    {{ item | safe }}</br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
@@ -29,6 +29,7 @@
     <select class="form-control" id="knownFaults" name="knownFaults">
     	    <option value="none">None</option>
     	    <option value="murdock_measurement_person.csv">murdock_measurement_person.csv</option>
+    	    <option value="breast_cancer_abnormals.csv">breast_cancer_abnormals.csv</option>
     </select>
 
     <input type="submit" name="evaluation" value="evaluation">
