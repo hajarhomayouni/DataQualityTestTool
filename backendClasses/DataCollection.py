@@ -40,12 +40,14 @@ class DataCollection:
         dataFrame[dataFrame.columns.values]=min_max.fit_transform(dataFrame[dataFrame.columns.values])"""       
         return dataFrame
     
+    @staticmethod
     def preprocess2(df_data):
+        df_data=df_data.fillna(9999999999.9)
         categorical_columns=[]
         for column in df_data.columns:
             if df_data[column].dtype != np.number:
                 df_data[column]=df_data[column].apply(hash)
-            if all(float(x).is_integer() for x in df_data[column]):
+            if all(float(x).is_integer() for x in df_data[column]) and column!='label' and 'date' not in column:
                 categorical_columns.append(column)   
 
         #preprocess categorical columns

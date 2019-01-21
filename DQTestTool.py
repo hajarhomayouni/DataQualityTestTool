@@ -137,11 +137,17 @@ def validate():
         normalRecordFrame['label']=0
         faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
-        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess2(decisionTreeTrainingFrame)
+        print decisionTreeTrainingFrame.columns.values
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess2(decisionTreeTrainingFrame.drop(decisionTreeTrainingFrame.columns[0], axis=1))
         decisionTree=DecisionTree()
-        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
-        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        print "#############"
+        columnNames=list(decisionTreeTrainingFramePreprocessed.columns.values)
+        columnNames.remove('label')
+        columnNames.remove('invalidityScore')
+        print columnNames
+        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,columnNames,'label' )
+        cluster_dt_url.append(decisionTree.visualize(treeModel,columnNames,['Normal','Faulty']))
+        treeCodeLines=decisionTree.treeToCode(treeModel,columnNames)
         cluster_interpretation.append(decisionTree.interpret(treeCodeLines))
        
         
