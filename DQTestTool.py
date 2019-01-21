@@ -137,7 +137,7 @@ def validate():
         normalRecordFrame['label']=0
         faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
-        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess2(decisionTreeTrainingFrame)
         decisionTree=DecisionTree()
         treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
