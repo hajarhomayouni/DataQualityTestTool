@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 import pandas as pd
+import statistics
 
 
 class Testing:
@@ -27,6 +28,21 @@ class Testing:
         normalFrame['invalidityScore']=invalidityScores[normal_indexes]
         return normalFrame
 
+    @staticmethod
+    def detectNormalRecordsBasedOnFeatures(testDataFrame, invalidityScoresPerFeature, invalidityScores):
+        normalFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
+        normal,=np.where(invalidityScoresPerFeature[1]<=statistics.median(invalidityScoresPerFeature[1]))
+        normal_indexes=set(normal)
+        for col in invalidityScoresPerFeature.columns.values[2:]:
+            normal, =np.where(invalidityScoresPerFeature[col]<=statistics.median(invalidityScoresPerFeature[col])) #for col in testDataFrame.columns.values))
+            normal_indexes.intersection(normal)
+        for normal in range(len(list(normal_indexes))):
+            normalFrame.loc[normal]=testDataFrame.iloc[list(normal_indexes)[normal]]
+        normalFrame['invalidityScore']=invalidityScores[list(normal_indexes)]
+        return normalFrame
+
+
+    
     @abc.abstractmethod
     def clusterFaultyRecords(self, faultyRecordFramePreprocessed, faultyRecordFrame):
         pass

@@ -22,6 +22,7 @@ import io
 import random
 from flask import Response
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import statistics
 
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
@@ -81,8 +82,7 @@ def validate():
     hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto'),dataFrameTrainPreprocessed)
-
+    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
     #Assign invalidity scores
     invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
 
@@ -96,7 +96,8 @@ def validate():
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
     
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
+    normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores)
+    #normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
     #TODO: Update threshold
     
     #store all the detected faulty records in db
@@ -134,14 +135,22 @@ def validate():
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         
         #Interpret each cluster
+        #detect normal recors for each group of faults
+        invalidFeatures=[]
+        for y in range(len(Y)):
+            #if Y[y]>statistics.median(Y):
+            if Y[y]>(sum(Y)/len(Y)):
+                invalidFeatures.append(y+1)
+
         normalRecordFrame['label']=0
         faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
-        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess2(decisionTreeTrainingFrame)
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         decisionTree=DecisionTree()
-        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
-        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[invalidFeatures],'label' )
+        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[invalidFeatures],['Normal','Faulty']))
+        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[invalidFeatures])
+        print treeCodeLines
         cluster_interpretation.append(decisionTree.interpret(treeCodeLines))
        
         

@@ -16,6 +16,8 @@ class Autoencoder(PatternDiscovery):
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=True)
         bestModel = gridperf1.models[0]
+        print bestModel
+        print bestModel.weights()
         return bestModel
 
     @staticmethod
@@ -33,6 +35,5 @@ class Autoencoder(PatternDiscovery):
         testDataHex=h2o.H2OFrame(testData)
         recon_error = model.anomaly(testDataHex, per_feature = True)
         recon_error_preprocessed=preprocessing.normalize(recon_error.as_data_frame(), norm='l2',axis=0)
-        print recon_error_preprocessed
         return pd.DataFrame.from_records(recon_error_preprocessed)
 
