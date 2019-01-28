@@ -2,6 +2,8 @@ from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
 from backendClasses.DecisionTree import DecisionTree
+from backendClasses.RandomForest import RandomForest
+from backendClasses.GradientBoosting import GradientBoosting
 from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
@@ -41,7 +43,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).head(100)
             db=get_db()
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
@@ -93,11 +95,14 @@ def validate():
 
     #Detect faulty records
     testing=Testing()  
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
-    
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
+    print "%%%%%%%%%%%" 
+    print faultyRecordFrame
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores)
     #normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
+    normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
+    print "%%%%%%%%%%%%Normal"
+    print normalRecordFrame
     #TODO: Update threshold
     
     #store all the detected faulty records in db
@@ -124,6 +129,7 @@ def validate():
     cluster_scores_fig_url=[]
     cluster_dt_url=[]
     cluster_interpretation=[]
+    treeRules=[]
     for i in range(int(numberOfClusters)):
         faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
         faulty_records_html.append(faulty_records.to_html())
@@ -136,22 +142,24 @@ def validate():
         
         #Interpret each cluster
         #detect normal recors for each group of faults
-        invalidFeatures=[]
+        """invalidFeatures=[]
         for y in range(len(Y)):
             #if Y[y]>statistics.median(Y):
             if Y[y]>(sum(Y)/len(Y)):
-                invalidFeatures.append(y+1)
+                invalidFeatures.append(y+1)"""
 
         normalRecordFrame['label']=0
         faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
-        decisionTree=DecisionTree()
-        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[invalidFeatures],'label' )
-        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[invalidFeatures],['Normal','Faulty']))
-        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[invalidFeatures])
-        print treeCodeLines
-        cluster_interpretation.append(decisionTree.interpret(treeCodeLines))
+        #decisionTree=DecisionTree()
+        decisionTree=GradientBoosting()
+        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
+        print treeModel
+        """cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        treeRules.append(decisionTree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        cluster_interpretation.append(decisionTree.interpret(treeCodeLines))"""
        
         
     if request.method == 'POST':
@@ -159,7 +167,7 @@ def validate():
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation)
+    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

@@ -21,7 +21,7 @@ class DataCollection:
     @staticmethod
     def preprocess(dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(9999999999)
+        dataFrame=dataFrame.fillna(999999999999)
 
         categoricalColumns=[]
         for column in dataFrame.columns:
@@ -50,7 +50,7 @@ class DataCollection:
 
         #preprocess categorical columns
         df_data_1=df_data.drop(categorical_columns, axis=1)   
-        enc=OneHotEncoder(sparse=False) 
+        enc=OneHotEncoder(sparse=True) 
         for col in categorical_columns:
             # creating an exhaustive list of all possible categorical values
             data=df_data[[col]]
