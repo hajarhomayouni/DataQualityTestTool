@@ -145,7 +145,7 @@ def validate():
         decisionTree=H2oGradientBoosting()
         treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         print treeModel
-        cluster_dt_url.append(decisionTree.visualize(treeModel))#,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
         """treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
         treeRules.append(decisionTree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
         cluster_interpretation.append(decisionTree.interpret(treeCodeLines))"""

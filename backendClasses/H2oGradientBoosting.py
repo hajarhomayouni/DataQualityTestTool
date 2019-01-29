@@ -24,7 +24,7 @@ class H2oGradientBoosting(Interpretation):
         model.train(y=y, x=list(featuresList),training_frame=trainDataHex)
         return model
     
-    def visualize(self,model):
+    def visualize(self,model,featuresList, targetValues):
         randName=str(random.randint(1,100000000))
         mojo_file_name = "./static/mojo/mojo_"+randName+".zip"
         h2o_jar_path= './venv/lib/python2.7/site-packages/h2o/backend/bin/h2o.jar'
