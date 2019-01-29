@@ -9,18 +9,15 @@ from IPython.display import Image
 from graphviz import Source
 from sklearn.tree import _tree
 import re
-from sklearn.ensemble import RandomForestClassifier
 
-# Model (can also use single decision tree)
-class RandomForest(Interpretation):
+
+
+class SklearnDecisionTree(Interpretation):
 
     @staticmethod
     def train(trainDataFrame, featuresList, target):
-        rf = RandomForestClassifier(n_estimators=10)
-        rf.fit(trainDataFrame[featuresList], trainDataFrame[target])
-        # Extract single tree
-        estimator = rf.estimators_[5]
-        return estimator
+        dt = tree.DecisionTreeClassifier()
+        return dt.fit(trainDataFrame[featuresList], trainDataFrame[target])
 
     
         

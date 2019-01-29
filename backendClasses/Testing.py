@@ -19,14 +19,14 @@ class Testing:
         outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
         return outlierFrame
     
-    """@staticmethod
+    @staticmethod
     def detectNormalRecords(testDataFrame, invalidityScores, threshold):
         normalFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
         normal_indexes, = np.where(invalidityScores <= threshold)
         for normal in range(len(normal_indexes)):
             normalFrame.loc[normal]=testDataFrame.iloc[normal_indexes[normal]]
-        #normalFrame['invalidityScore']=invalidityScores[normal_indexes]
-        return normalFrame"""
+        normalFrame['invalidityScore']=invalidityScores[normal_indexes]
+        return normalFrame
 
     @staticmethod
     def detectNormalRecordsBasedOnFeatures(testDataFrame, invalidityScoresPerFeature, invalidityScores, threshold):

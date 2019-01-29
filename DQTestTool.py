@@ -1,9 +1,9 @@
 from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
-from backendClasses.DecisionTree import DecisionTree
-from backendClasses.RandomForest import RandomForest
-from backendClasses.GradientBoosting import GradientBoosting
+from backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from backendClasses.SklearnRandomForest import SklearnRandomForest
+from backendClasses.H2oGradientBoosting import H2oGradientBoosting
 from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
@@ -96,13 +96,9 @@ def validate():
     #Detect faulty records
     testing=Testing()  
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
-    print "%%%%%%%%%%%" 
-    print faultyRecordFrame
     #Detect normal records
-    #normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
-    normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
-    print "%%%%%%%%%%%%Normal"
-    print normalRecordFrame
+    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
+    #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
     #TODO: Update threshold
     
     #store all the detected faulty records in db
@@ -141,27 +137,19 @@ def validate():
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         
         #Interpret each cluster
-        #detect normal recors for each group of faults
-        """invalidFeatures=[]
-        for y in range(len(Y)):
-            #if Y[y]>statistics.median(Y):
-            if Y[y]>(sum(Y)/len(Y)):
-                invalidFeatures.append(y+1)"""
-
-        normalRecordFrame['label']=0
-        faulty_records['label']=1
+        normalRecordFrame['label']='valid'
+        faulty_records['label']='invalid'
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
-        #decisionTree=DecisionTree()
-        decisionTree=GradientBoosting()
+        #decisionTree=SklearnDecisionTree()
+        decisionTree=H2oGradientBoosting()
         treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
         print treeModel
-        """cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        cluster_dt_url.append(decisionTree.visualize(treeModel))#,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        """treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
         treeRules.append(decisionTree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
         cluster_interpretation.append(decisionTree.interpret(treeCodeLines))"""
        
-        
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):

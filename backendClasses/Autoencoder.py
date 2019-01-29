@@ -16,8 +16,6 @@ class Autoencoder(PatternDiscovery):
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=True)
         bestModel = gridperf1.models[0]
-        print bestModel
-        print bestModel.weights()
         return bestModel
 
     @staticmethod

@@ -23,7 +23,7 @@ class DataCollection:
         #proprocess null data
         dataFrame=dataFrame.fillna(999999999999)
 
-        categoricalColumns=[]
+        """categoricalColumns=[]
         for column in dataFrame.columns:
             if dataFrame[column].dtype != np.number:
                 dataFrame[column]=dataFrame[column].apply(hash)
@@ -31,7 +31,7 @@ class DataCollection:
                 categoricalColumns.append(column)            
 
 
-        """min_max=MinMaxScaler()
+        min_max=MinMaxScaler()
         le=LabelEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]
@@ -40,32 +40,14 @@ class DataCollection:
         dataFrame[dataFrame.columns.values]=min_max.fit_transform(dataFrame[dataFrame.columns.values])"""       
         return dataFrame
     
-    def preprocess2(df_data):
+    def findCategorical(self,df_data):
         categorical_columns=[]
-        for column in df_data.columns:
+        for column in df_data.columns.values:
             if df_data[column].dtype != np.number:
                 df_data[column]=df_data[column].apply(hash)
             if all(float(x).is_integer() for x in df_data[column]):
-                categorical_columns.append(column)   
-
-        #preprocess categorical columns
-        df_data_1=df_data.drop(categorical_columns, axis=1)   
-        enc=OneHotEncoder(sparse=True) 
-        for col in categorical_columns:
-            # creating an exhaustive list of all possible categorical values
-            data=df_data[[col]]
-            enc.fit(data)
-            # Fitting One Hot Encoding on train data
-            temp = enc.transform(df_data[[col]])
-            # Changing the encoded features into a data frame with new column names
-            temp=pd.DataFrame(temp,columns=[(col+"_"+str(i)) for i in data[col]
-                                            .value_counts().index])
-            # In side by side concatenation index values should be same
-            # Setting the index values similar to the X_train data frame
-            temp=temp.set_index(df_data.index.values)
-            # adding the new One Hot Encoded varibales to the train data frame
-            df_data_1=pd.concat([df_data_1,temp],axis=1)
-        return df_data_1
+                categorical_columns.append(column)
+        return categorical_columns
     
     
     @staticmethod
