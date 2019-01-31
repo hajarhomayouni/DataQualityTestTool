@@ -4,6 +4,7 @@ from backendClasses.DataCollection import DataCollection
 from backendClasses.SklearnDecisionTree import SklearnDecisionTree
 from backendClasses.SklearnRandomForest import SklearnRandomForest
 from backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from backendClasses.H2oRandomForest import H2oRandomForest
 from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
@@ -36,6 +37,8 @@ def importDataFrame():
     """
     if request.method == 'POST':
         dataPath = request.form.get("dataPath")
+        interpretationMethod= request.form.getlist("interpretation")
+
         error = None
 
         if not dataPath:
@@ -48,7 +51,7 @@ def importDataFrame():
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
             datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))            
-            return redirect(url_for('DQTestTool.validate', datasetId=datasetId))
+            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod))
         flash(error)
 
     return render_template('import.html')
@@ -64,6 +67,7 @@ def validate():
 
     #Prepare Training data by removing actual faults
     datasetId=request.args.get('datasetId')
+    interpretationMethod=request.args.get('interpretationMethod')
     truePositive=0.0
     truePositiveRate=0.0
     if request.method == "POST":
@@ -137,18 +141,23 @@ def validate():
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         
         #Interpret each cluster
-        normalRecordFrame['label']='valid'
-        faulty_records['label']='invalid'
+        normalRecordFrame['label']=0
+        faulty_records['label']=1
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
-        #decisionTree=SklearnDecisionTree()
-        decisionTree=H2oGradientBoosting()
-        treeModel=decisionTree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
-        print treeModel
-        cluster_dt_url.append(decisionTree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        """treeCodeLines=decisionTree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
-        treeRules.append(decisionTree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
-        cluster_interpretation.append(decisionTree.interpret(treeCodeLines))"""
+        tree=H2oGradientBoosting()
+        if interpretationMethod=="Sklearn Decision Tree":
+            tree=SklearnDecisionTree()
+        if interpretationMethod=="Sklearn Random Forest":
+            tree=SklearnRandomForest()
+        if interpretationMethod=="H2o Random Forest":
+            tree=H2oRandomForest()
+
+        treeModel=tree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
+        cluster_dt_url.append(tree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
+        treeCodeLines=tree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
+        treeRules.append(tree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")

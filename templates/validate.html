@@ -4,7 +4,7 @@
 {% endblock %}
 
 {% block content %}
-  <form method="post" style="font-family:courier;">
+<form method="post" style="font-family:courier;">
   <p style=>
   <label for="description"> Please select the groups that are actually faulty. </br> Press revalidate to improve the fault detection approach. </br> </label>
   </p>
@@ -17,7 +17,7 @@
 	    <label for="group">Group_{{loop.index0}}</label>
 	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
 	    <img src='{{fig_urls[loop.index0]}}'  style="width:300px;height:300px;"></img></br>
-	    <img src="/static/images/{{cluster_dt_url[loop.index0]}}" style="width:300px;height:300px;"></img></br>
+	    <img src="{{cluster_dt_url[loop.index0]}}" style="width:300px;height:300px;"></img></br>
 	    <label for="Reason">Reason:</label></br>
 	    <label for="cluster">{{cluster_interpretation[loop.index0]|safe}}</label></br>
 	    <label for="Rules">Rules:</label></br>

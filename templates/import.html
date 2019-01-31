@@ -4,7 +4,7 @@
 {% endblock %}
 
 {% block content %}
-  <form method="post">
+  <form method="post" style="font-family:courier;" >
     <label for="dataPath">Data Path:</label>
     <!--    <input name="dataPath" id="dataPath" required> -->
     <select class="form-control" id="dataPath" name="dataPath">
@@ -24,8 +24,18 @@
         <option value="death-person_1871.csv">death-person_1871.csv</option>	
         <option value="drug_exposure_10000.csv">drug_exposure_10000.csv</option>	
 
-    </select>
+    </select></br>
+  <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
+    <label for="interpretationMethod">Fault Interpretation Method:</label></br>
+    <label>H2o Gradient Boosting</label><input type="checkbox" name="interpretation" value="H2o Gradient Boosting" checked/> </br>
+    <label>H2o Random Forest</label><input type="checkbox" name="interpretation" value="H2o Random Forest"/> </br>
+    <label>Sklearn Random Forest</label> <input type="checkbox" name="interpretation" value="Sklearn Random Forest"/> </br>
+    <label>Sklearn Decision Tree</label> <input type="checkbox" name="interpretation" value="Sklearn Decision Tree"/> </br>
+  </p>
+
     <input type="submit" value="import">
+
+
   </form>
 
 {% endblock %}

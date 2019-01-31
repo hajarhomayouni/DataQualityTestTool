@@ -23,7 +23,7 @@ class DataCollection:
         #proprocess null data
         dataFrame=dataFrame.fillna(999999999999)
 
-        """categoricalColumns=[]
+        categoricalColumns=[]
         for column in dataFrame.columns:
             if dataFrame[column].dtype != np.number:
                 dataFrame[column]=dataFrame[column].apply(hash)
@@ -31,7 +31,7 @@ class DataCollection:
                 categoricalColumns.append(column)            
 
 
-        min_max=MinMaxScaler()
+        """ min_max=MinMaxScaler()
         le=LabelEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]

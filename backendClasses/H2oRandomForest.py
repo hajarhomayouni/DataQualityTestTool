@@ -1,13 +1,13 @@
 from Interpretation import Interpretation
 import h2o
-from h2o.estimators.gbm import H2OGradientBoostingEstimator
+from h2o.estimators.random_forest import H2ORandomForestEstimator
 import random
 import subprocess
 from graphviz import Source
 from DataCollection import DataCollection
 
 
-class H2oGradientBoosting(Interpretation):
+class H2oRandomForest(Interpretation):
     @staticmethod
     def train(trainDataFrame, featuresList, target):
         h2o.init()
@@ -20,7 +20,7 @@ class H2oGradientBoosting(Interpretation):
         dc=DataCollection()
         categoricalColumns=dc.findCategorical(trainDataFrame[featuresList])
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()
-        model=H2OGradientBoostingEstimator(distribution="bernoulli",ntrees=1, max_depth=4,learn_rate=0.1,min_rows=1)#,mtries=len(featuresList))
+        model=H2ORandomForestEstimator(model_id="rf_covType_v2",ntrees=1, max_depth=4,mtries=len(featuresList)-1)
         model.train(y=y, x=list(featuresList),training_frame=trainDataHex)
         return model
     
