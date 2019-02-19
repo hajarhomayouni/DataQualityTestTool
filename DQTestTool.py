@@ -6,7 +6,7 @@ from backendClasses.SklearnRandomForest import SklearnRandomForest
 from backendClasses.H2oGradientBoosting import H2oGradientBoosting
 from backendClasses.H2oRandomForest import H2oRandomForest
 from backendClasses.H2oKmeans import H2oKmeans
-from backendClasses.SOM import SOM
+#from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
 import numpy as np
