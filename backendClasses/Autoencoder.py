@@ -48,12 +48,12 @@ class Autoencoder(PatternDiscovery):
         testDataHex[categoricalColumns] = testDataHex[categoricalColumns].asfactor()"""
         #
         recon_error = model.anomaly(testDataHex, per_feature = True)
-        """# find averages of columns from the same category
+        # find averages of columns from the same category
         recon_error_avg  = pd.DataFrame(columns = testDataFrame.columns.values)
         for col in recon_error_avg.columns.values:
             temp_df=h2o.as_list(recon_error[[i for i in range(len(recon_error.columns)) if recon_error.columns[i].startswith('reconstr_'+col)]])
             recon_error_avg[col]=temp_df.mean(axis=1)
-        recon_error_preprocessed=preprocessing.normalize(recon_error_avg, norm='l2',axis=0)"""
-        recon_error_preprocessed=preprocessing.normalize(recon_error.as_data_frame(), norm='l2',axis=0)
+        recon_error_preprocessed=preprocessing.normalize(recon_error_avg, norm='l2',axis=0)
+        #recon_error_preprocessed=preprocessing.normalize(recon_error.as_data_frame(), norm='l2',axis=0)
         return pd.DataFrame.from_records(recon_error_preprocessed)
 

@@ -5,6 +5,7 @@ from backendClasses.SklearnDecisionTree import SklearnDecisionTree
 from backendClasses.SklearnRandomForest import SklearnRandomForest
 from backendClasses.H2oGradientBoosting import H2oGradientBoosting
 from backendClasses.H2oRandomForest import H2oRandomForest
+from backendClasses.H2oKmeans import H2oKmeans
 from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
@@ -46,7 +47,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath).head(100)
+            dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
@@ -115,9 +116,12 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0]],axis=1))   
-    som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
-    dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)
+    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore' ],axis=1))   
+    """som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
+    dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)"""
+    kmeans=H2oKmeans()
+    bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed)
+    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed, faultyRecordFrame)
     
     #Show groups of faulty records as HTML tables
     i=0
@@ -141,8 +145,8 @@ def validate():
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         
         #Interpret each cluster
-        normalRecordFrame['label']=0
-        faulty_records['label']=1
+        normalRecordFrame['label']='valid'
+        faulty_records['label']='invalid'
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         tree=H2oGradientBoosting()
@@ -191,9 +195,12 @@ def evaluation():
     score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
     
     #statistics    
-    TPR=evaluation.truePositiveRate(A,TF)
-    TPGR=evaluation.truePositiveGrowthRate(score)
-    NR=evaluation.numberOfRuns(score)
+    #TPR=evaluation.truePositiveRate(A,TF)
+    TPR=0
+    #TPGR=evaluation.truePositiveGrowthRate(score)
+    TPGR=0
+    #NR=evaluation.numberOfRuns(score)
+    NR=0
     PD=evaluation.previouslyDetectedFaultyRecords(A,E)
     ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
     UD=evaluation.unDetectedFaultyRecords(A, E)

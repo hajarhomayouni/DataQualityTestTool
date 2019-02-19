@@ -17,10 +17,10 @@ class H2oRandomForest(Interpretation):
         trainDataHex=h2o.H2OFrame(trainData)
         y=target
         trainDataHex[y] = trainDataHex[y].asfactor()
-        dc=DataCollection()
+        """dc=DataCollection()
         categoricalColumns=dc.findCategorical(trainDataFrame[featuresList])
-        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()
-        model=H2ORandomForestEstimator(model_id="rf_covType_v2",ntrees=1, max_depth=4,mtries=len(featuresList)-1)
+        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
+        model=H2ORandomForestEstimator(ntrees=1,max_depth=5)#binomial_double_trees=True,mtries=len(trainDataHex.columns)-1)
         model.train(y=y, x=list(featuresList),training_frame=trainDataHex)
         return model
     

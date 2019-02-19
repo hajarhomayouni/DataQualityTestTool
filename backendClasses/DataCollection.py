@@ -23,7 +23,7 @@ class DataCollection:
         #proprocess null data
         dataFrame=dataFrame.fillna(999999999999)
 
-        categoricalColumns=[]
+        """categoricalColumns=[]
         for column in dataFrame.columns:
             if dataFrame[column].dtype != np.number:
                 dataFrame[column]=dataFrame[column].apply(hash)
@@ -31,7 +31,7 @@ class DataCollection:
                 categoricalColumns.append(column)            
 
 
-        """ min_max=MinMaxScaler()
+        min_max=MinMaxScaler()
         le=LabelEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]
@@ -70,8 +70,12 @@ class DataCollection:
     def build_graph(x_coordinates, y_coordinates):
         img = io.BytesIO()
         #plt.xticks(rotation=45)
+        #plt.tick_params(labelsize=1)
+        plt.rcParams.update({'font.size': 5})
+        plt.tight_layout()
+        plt.figure(figsize=(30,3))
         plt.plot(x_coordinates, y_coordinates,'o')
-        plt.savefig(img, format='png')
+        plt.savefig(img, format='png',bbox_inches='tight')
         img.seek(0)
         graph_url = base64.b64encode(img.getvalue()).decode()
         plt.close()

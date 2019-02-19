@@ -17,10 +17,10 @@ class H2oGradientBoosting(Interpretation):
         trainDataHex=h2o.H2OFrame(trainData)
         y=target
         trainDataHex[y] = trainDataHex[y].asfactor()
-        dc=DataCollection()
+        """dc=DataCollection()
         categoricalColumns=dc.findCategorical(trainDataFrame[featuresList])
-        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()
-        model=H2OGradientBoostingEstimator(distribution="bernoulli",ntrees=1, max_depth=4,learn_rate=0.1,min_rows=1)#,mtries=len(featuresList))
+        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
+        model=H2OGradientBoostingEstimator(distribution="bernoulli",ntrees=1, max_depth=5,learn_rate=0.1,min_rows=1)#,mtries=len(featuresList))
         model.train(y=y, x=list(featuresList),training_frame=trainDataHex)
         return model
     
