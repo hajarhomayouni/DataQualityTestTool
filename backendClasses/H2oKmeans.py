@@ -20,7 +20,7 @@ class H2oKmeans(Testing):
         categoricalColumns=dc.findCategorical(trainDataFrame)
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
         #
-        k = range(2,10)
+        k = range(2,20)
         hyperParameters = {"k":k}
         modelGrid = H2OGridSearch(H2OKMeansEstimator(ignore_const_cols=False),hyper_params=hyperParameters)
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
@@ -37,8 +37,8 @@ class H2oKmeans(Testing):
         testDataHex=h2o.H2OFrame(testDataFramePreprocessed)
         #to consider categorical columns uncomment all the comments
         """dc=DataCollection()
-        categoricalColumns=dc.findCategorical(trainDataFrame)
-        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
+        categoricalColumns=dc.findCategorical(testDataFramePreprocessed)
+        testDataHex[categoricalColumns] = testDataHex[categoricalColumns].asfactor()"""
         #
         labels_test=h2o.as_list(model.predict(testDataHex))["predict"].tolist()
         print type(labels_test)

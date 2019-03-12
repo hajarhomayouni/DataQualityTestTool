@@ -96,11 +96,13 @@ def validate():
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
-    invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False) 
+    invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
 
     #Detect faulty records
     testing=Testing()  
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
+    #Detect faulty records based on invalidity scores
+    faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
@@ -116,12 +118,15 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
-    faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore' ],axis=1))   
+    #If you want to work with data directly for clustering uncomment the below line and comment the line after. Now it clusters based on invelidity score per feature
+    #faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)   
+    faultyRecordFramePreprocessed=faultyInvalidityScoreFrame
+    faultyRecordFramePreprocessed.columns=faultyRecordFrame.columns.values
     """som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
     dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)"""
     kmeans=H2oKmeans()
-    bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed)
-    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed, faultyRecordFrame)
+    bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
+    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     
     #Show groups of faulty records as HTML tables
     i=0
@@ -146,7 +151,7 @@ def validate():
         
         #Interpret each cluster
         normalRecordFrame['label']='valid'
-        faulty_records['label']='invalid'
+        faulty_records['label']='suspicious'
         decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         tree=H2oGradientBoosting()

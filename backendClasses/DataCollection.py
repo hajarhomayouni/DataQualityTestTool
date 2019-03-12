@@ -21,7 +21,7 @@ class DataCollection:
     @staticmethod
     def preprocess(dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(999999999999)
+        dataFrame=dataFrame.fillna("NULL")
 
         """categoricalColumns=[]
         for column in dataFrame.columns:
