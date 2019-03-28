@@ -26,6 +26,9 @@ virtualenv venv<br/>
 **Flask**<br/>
 pip install flask<br/>
 
+**Initialize Database**<br/>
+flask init-db<br/>
+
 **Setup flask**<br/>
 export FLASK_APP=Project_directory<br/>
 export FLASK_ENV=development<br/>
