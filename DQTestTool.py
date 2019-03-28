@@ -47,7 +47,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath).sample(10000)
+            dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
