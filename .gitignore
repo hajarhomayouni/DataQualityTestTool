@@ -16,6 +16,7 @@ dist/
 build/
 *.egg-info/
 
-static/
+static/images/*
+static/mojo/*
 
 dictionary/
