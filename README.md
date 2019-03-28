@@ -16,6 +16,10 @@ export PATH=$JAVA_HOME/bin:$PATH<br/>
 **H2O**<br/>
 pip install h2o<br/>
 
+**Update H2o jar path**</br>
+Download h2o.jar and update the jar path in backendClasses/H2oRandomForest and backendClasses/H2oGradientBoosting
+h2o_jar_path= '<path_to_file>/h2o.jar'
+
 **Tensorflow**<br/>
 pip install --upgrade tensorflow<br/>
 
