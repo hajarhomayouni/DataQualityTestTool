@@ -35,8 +35,8 @@ class Autoencoder(PatternDiscovery):
         #
         recon_error = model.anomaly(testDataHex)
         recon_error_np=recon_error.as_data_frame().values
-        recon_error_preprocessed=preprocessing.normalize(recon_error_np, norm='l2',axis=0)
-        return recon_error_preprocessed.ravel()
+        #recon_error_preprocessed=preprocessing.normalize(recon_error_np, norm='l2',axis=0)
+        return recon_error_np.ravel()
 
     @staticmethod
     def assignInvalidityScorePerFeature(model, testDataFrame):
@@ -53,7 +53,6 @@ class Autoencoder(PatternDiscovery):
         for col in recon_error_avg.columns.values:
             temp_df=h2o.as_list(recon_error[[i for i in range(len(recon_error.columns)) if recon_error.columns[i].startswith('reconstr_'+col)]])
             recon_error_avg[col]=temp_df.mean(axis=1)
-        recon_error_preprocessed=preprocessing.normalize(recon_error_avg, norm='l2',axis=0)
-        #recon_error_preprocessed=preprocessing.normalize(recon_error.as_data_frame(), norm='l2',axis=0)
-        return pd.DataFrame.from_records(recon_error_preprocessed)
+        #recon_error_preprocessed=preprocessing.normalize(recon_error_avg, norm='l2',axis=0)
+        return pd.DataFrame.from_records(recon_error_avg)
 

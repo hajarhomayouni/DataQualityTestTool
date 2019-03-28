@@ -6,7 +6,7 @@ from backendClasses.SklearnRandomForest import SklearnRandomForest
 from backendClasses.H2oGradientBoosting import H2oGradientBoosting
 from backendClasses.H2oRandomForest import H2oRandomForest
 from backendClasses.H2oKmeans import H2oKmeans
-#from backendClasses.SOM import SOM
+from backendClasses.SOM import SOM
 from backendClasses.Testing import Testing
 import h2o
 import numpy as np
@@ -47,7 +47,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).sample(10000)
             db=get_db()
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
@@ -118,16 +118,19 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
-    #If you want to work with data directly for clustering uncomment the below line and comment the line after. Now it clusters based on invelidity score per feature
+    #If you want to work with data directly for clustering uncomment the below line and comment the two lines after. Now it clusters based on invelidity score per feature
     #faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)   
     faultyRecordFramePreprocessed=faultyInvalidityScoreFrame
     faultyRecordFramePreprocessed.columns=faultyRecordFrame.columns.values
-    """som = SOM(5,5, len(faultyRecordFrame.columns.values)-1, 400)
-    dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed, faultyRecordFrame)"""
-    kmeans=H2oKmeans()
+    #som
+    som = SOM(5,5, len(faultyRecordFrame.columns.values)-2, 400)
+    dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+    #
+    #kmeans
+    """kmeans=H2oKmeans()
     bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
-    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
-    
+    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
+    #
     #Show groups of faulty records as HTML tables
     i=0
     for dataFrame in dataFrames:
@@ -148,6 +151,10 @@ def validate():
         X=dataFrame.columns.values[1:-1]
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+
+        #indicate the attributes with high invalidity score values
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > statistics.mean(Y)]
+        faulty_attributes=X[faulty_attributes_indexes]
         
         #Interpret each cluster
         normalRecordFrame['label']='valid'
@@ -162,10 +169,10 @@ def validate():
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
 
-        treeModel=tree.train(decisionTreeTrainingFramePreprocessed,decisionTreeTrainingFrame.columns.values[1:-2],'label' )
-        cluster_dt_url.append(tree.visualize(treeModel,decisionTreeTrainingFrame.columns.values[1:-2],['Normal','Faulty']))
-        treeCodeLines=tree.treeToCode(treeModel,decisionTreeTrainingFrame.columns.values[1:-2])
-        treeRules.append(tree.treeToRules(treeModel,decisionTreeTrainingFrame.columns.values[1:-2]))
+        treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
+        cluster_dt_url.append(tree.visualize(treeModel,faulty_attributes,['valid','suspicious']))
+        treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
+        treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
