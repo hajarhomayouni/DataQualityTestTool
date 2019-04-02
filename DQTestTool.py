@@ -47,7 +47,7 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).head(50)
             db=get_db()
             dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
             dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
@@ -132,7 +132,7 @@ def validate():
     dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
     #
     #Show groups of faulty records as HTML tables
-    numberOfClusters=dataFrames.shape[0]
+    numberOfClusters=len(dataFrames)
     faulty_records_html=[]
     cluster_scores_fig_url=[]
     cluster_dt_url=[]
@@ -145,9 +145,7 @@ def validate():
         #Show descriptive graph for each group
         #**#cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
-        print "************"
-        print cluster_scores
-        X=dataFrame.columns.values[1:-1]
+        X=dataFrame.columns.values[1:]
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
