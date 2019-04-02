@@ -109,7 +109,7 @@ def validate():
     #TODO: Update threshold
     
     #store all the detected faulty records in db
-    faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
+    #**#faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
 
     #store TPR in database for this run
@@ -175,46 +175,34 @@ def validate():
     if request.method == 'POST':
         knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
-            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
+            #A
+            faulty_records=faultyRecordFrame
+            A=set(faulty_records[faulty_records.columns.values[0]].astype(str).tolist())
+            #TF
+            TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
+            TF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
+            #E
+            E=set()
+            if knownFaults:
+                dataCollection=DataCollection()
+                E=dataCollection.csvToSet('datasets/PD/'+str(knownFaults))    
+            evaluation=Evaluation()
+            score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
+            #statistics    
+            #TPR=evaluation.truePositiveRate(A,TF)
+            TPR=0
+            #TPGR=evaluation.truePositiveGrowthRate(score)
+            TPGR=0
+            #NR=evaluation.numberOfRuns(score)
+            NR=0
+            PD=evaluation.previouslyDetectedFaultyRecords(A,E)
+            ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
+            UD=evaluation.unDetectedFaultyRecords(A, E)
+            return redirect(url_for('DQTestTool.evaluation', score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD))
          
     return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():
-    db=get_db()
-    datasetId=request.args.get('datasetId')
-    knownFaults=request.args.get('knownFaults')
-
-    #A
-    faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_all", con=db)
-    A=set(faulty_records[faulty_records.columns.values[0]].astype(str).tolist())
-    
-    #TF
-    TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
-    TF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
-    
-    #E
-    E=set()
-    if knownFaults:
-        dataCollection=DataCollection()
-        E=dataCollection.csvToSet('datasets/PD/'+str(knownFaults))
-    
-
-    evaluation=Evaluation()
-    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
-    
-    #statistics    
-    #TPR=evaluation.truePositiveRate(A,TF)
-    TPR=0
-    #TPGR=evaluation.truePositiveGrowthRate(score)
-    TPGR=0
-    #NR=evaluation.numberOfRuns(score)
-    NR=0
-    PD=evaluation.previouslyDetectedFaultyRecords(A,E)
-    ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
-    UD=evaluation.unDetectedFaultyRecords(A, E)
-
-    #TODO:save
-
-    return render_template('evaluation.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
+    return render_template('evaluation.html')#,  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
