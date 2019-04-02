@@ -96,7 +96,7 @@ def validate():
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
-    invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
+    #**#invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
 
     #Detect faulty records
     testing=Testing()  
@@ -132,22 +132,21 @@ def validate():
     dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
     #
     #Show groups of faulty records as HTML tables
-    i=0
-    for dataFrame in dataFrames:
-        dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
-        i=i+1
-    numberOfClusters=i
+    numberOfClusters=dataFrames.shape[0]
     faulty_records_html=[]
     cluster_scores_fig_url=[]
     cluster_dt_url=[]
     cluster_interpretation=[]
     treeRules=[]
     for i in range(int(numberOfClusters)):
-        faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
+        faulty_records=dataFrames[i]
         faulty_records_html.append(faulty_records.to_html())
         
         #Show descriptive graph for each group
-        cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
+        #**#cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
+        cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
+        print "************"
+        print cluster_scores
         X=dataFrame.columns.values[1:-1]
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
