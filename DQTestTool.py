@@ -75,6 +75,10 @@ def validate():
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
+            print request.form["Table_"+i]
+            print "**********************"
+            print request.form.get("Table_"+i)
+            print "***************************"
             db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
             #TFdataFrame: stores all faults
             TFdataFrame=TFdataFrame.append(pd.read_sql('SELECT DISTINCT '+ dataFrame.columns.values[0]+ ' AS fault_id,"'+datasetId+'" AS dataset_id FROM Faulty_records_'+str(i),con=db))
