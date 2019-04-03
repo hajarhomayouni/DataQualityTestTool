@@ -22,7 +22,7 @@
 	    <label for="cluster">{{cluster_interpretation[loop.index0]|safe}}</label></br>
 	    <label for="Rules">Rules:</label></br>
 	    <label for="treeRules">{{treeRules[loop.index0]|safe}}</label></br>-->
-	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
+	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="Table_{{loop.index0}}">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate">
     </br>
