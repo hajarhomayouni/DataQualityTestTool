@@ -75,7 +75,7 @@ def validate():
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            print request.form["Table_"+i]
+            #print request.form["Table_"+i]
             print "**********************"
             print request.form.get("Table_"+i)
             print "***************************"
