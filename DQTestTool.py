@@ -52,8 +52,7 @@ def importDataFrame():
             #all the data records are clean by default
             dataFrame['status']='clean'
             datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))
-            dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')
-            #**#dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')            
+            dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod))
         flash(error)
 
@@ -75,12 +74,11 @@ def validate():
     #remove column id and status for analysis
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0], dataFrame.columns.values[-1]], axis=1))
 
-    #Prepare Training data: Remove actual faults from training data; change theis status from clean to actualFaults_i   
+    #Prepare Training data: Remove actual faults from training data; change their status from clean to actualFaults_i   
     if request.method == "POST":
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            #**#db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
             db.execute('Update dataRecords_'+datasetId+' set status=actualFaults_'+i+ ' where status=suspicious_'+i)
     
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
@@ -98,7 +96,6 @@ def validate():
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
-    #**#invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
 
     #Detect faulty records
     testing=Testing()  
@@ -108,11 +105,6 @@ def validate():
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
-    #TODO: Update threshold
-    
-    #store all the detected faulty records in db
-    #**#faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
-
 
     #store TPR in database for this run
     if not AFdataFrame.empty:
@@ -124,7 +116,7 @@ def validate():
     #faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)   
     faultyRecordFramePreprocessed=faultyInvalidityScoreFrame
     faultyRecordFramePreprocessed.columns=faultyRecordFrame.columns.values
-    #som
+    #SOM
     som = SOM(5,5, len(faultyRecordFrame.columns.values)-2, 400)
     dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     #
@@ -133,12 +125,13 @@ def validate():
     bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
     dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
     #
-    #Show groups of faulty records as HTML tables
+    
+    #Update status of suspicious groups in database
     i=0
     for dataFrame in dataFrames:
-        #**#dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
-        #TODO#
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_'"+i+ " where "+dataFrame.columns.values[0]+" in "+dataFrame[dataFrame.columns.values[0]] )
+        dataframe.to_sql('suspicious_i_temp_'+datasetId, conn, if_exists='replace', index=False)
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_'"+i+ " where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ "from suspicious_i_temp_"+datasetId+)")
+        db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
     numberOfClusters=i
     faulty_records_html=[]
@@ -146,6 +139,8 @@ def validate():
     cluster_dt_url=[]
     cluster_interpretation=[]
     treeRules=[]
+    
+    #show the suspicious groups as HTML tables
     for i in range(int(numberOfClusters)):
         faulty_records=dataFrames[i]
         faulty_records_html.append(faulty_records.to_html())
