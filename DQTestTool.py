@@ -47,11 +47,11 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).head(50)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
-            datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))
+            datasetId=dataPath.replace('.csv','_').replace("-","_") + str(randint(1,10000))
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod))
         flash(error)
@@ -79,7 +79,7 @@ def validate():
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            db.execute('Update dataRecords_'+datasetId+' set status=actualFaults_'+i+ ' where status=suspicious_'+i)
+            db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
     
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0], dataFrameTrain.columns.values[-1]], axis=1))
@@ -103,7 +103,7 @@ def validate():
     #Detect faulty records based on invalidity scores
     faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
+    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
 
     #store TPR in database for this run
@@ -112,13 +112,11 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
-    #If you want to work with data directly for clustering uncomment the below line and comment the two lines after. Now it clusters based on invelidity score per feature
-    #faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)   
-    faultyRecordFramePreprocessed=faultyInvalidityScoreFrame
-    faultyRecordFramePreprocessed.columns=faultyRecordFrame.columns.values
+    #If you want to work with data directly for clustering, use faultyRecordFrame directly for clustering. Now it clusters based on invelidity score per feature
     #SOM
-    som = SOM(5,5, len(faultyRecordFrame.columns.values)-2, 400)
-    dataFrames=som.clusterFaultyRecords(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+    #exclude id and invalidity score
+    som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-2, 400)
+    dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     #
     #kmeans
     """kmeans=H2oKmeans()
@@ -129,8 +127,9 @@ def validate():
     #Update status of suspicious groups in database
     i=0
     for dataFrame in dataFrames:
-        dataframe.to_sql('suspicious_i_temp_'+datasetId, conn, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_'"+i+ " where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ "from suspicious_i_temp_"+datasetId+)")
+        dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
+        #print "Update dataRecords_"+datasetId+" set status='suspicious_'"+str(i)+ " where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")"
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
     numberOfClusters=i
@@ -147,8 +146,13 @@ def validate():
         
         #Show descriptive graph for each group
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
-        X=dataFrame.columns.values[1:]
+        #exclude status and invalidityScore columns
+        X=dataFrame.columns.values[1:-2]
         Y=cluster_scores.mean().tolist()[1:]
+        print "************"
+        print X
+        print "*************"
+        print Y
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #indicate the attributes with high invalidity score values
@@ -193,7 +197,7 @@ def evaluation():
     
     #AF
     AFdataFrame=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
-    AF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
+    AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
     
     #E
     E=set()
@@ -213,10 +217,10 @@ def evaluation():
     #NR=evaluation.numberOfRuns(score)
     NR=0
     PD=evaluation.previouslyDetectedFaultyRecords(A,E)
-    ND=evaluation.newlyDetectedFaultyRecords(A, E, TF)
+    ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
     UD=evaluation.unDetectedFaultyRecords(A, E)
 
     #TODO:save
 
-    return render_template('evaluation.html',  score=score.to_html(), TF=float(len(TF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
+    return render_template('evaluation.html',  score=score.to_html(), TF=float(len(AF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
