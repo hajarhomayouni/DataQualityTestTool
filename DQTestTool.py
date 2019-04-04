@@ -49,9 +49,11 @@ def importDataFrame():
             dataCollection=DataCollection()
             dataFrame=dataCollection.importData("datasets/"+dataPath)
             db=get_db()
-            dataFrame.to_sql('dataRecords', con=db, if_exists='replace')
-            dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')
-            datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))            
+            #all the data records are clean by default
+            dataFrame['status']='clean'
+            datasetId=dataPath.replace('.csv','_') + str(randint(1,10000))
+            dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')
+            #**#dataFrame.to_sql('trainingRecords', con=db, if_exists='replace')            
             return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod))
         flash(error)
 
@@ -59,30 +61,30 @@ def importDataFrame():
 
 @bp.route('/validate', methods=["GET","POST"])
 def validate():
-    db=get_db()
-    dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords", con=db)
-    TFdataFrame=pd.read_sql(sql="SELECT * FROM TF", con=db)
-
-    dataCollection=DataCollection()
-    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1))
-
-    #Prepare Training data by removing actual faults
+    #Initializations
     datasetId=request.args.get('datasetId')
+    db=get_db()
     interpretationMethod=request.args.get('interpretationMethod')
     truePositive=0.0
     truePositiveRate=0.0
+    dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
+    #AFdataFrame: stores all actual faults
+    AFdataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
+
+    dataCollection=DataCollection()
+    #remove column id and status for analysis
+    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0], dataFrame.columns.values[-1]], axis=1))
+
+    #Prepare Training data: Remove actual faults from training data; change theis status from clean to actualFaults_i   
     if request.method == "POST":
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
         for  i in request.form.getlist('Group'):
-            db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
-            #TFdataFrame: stores all faults
-            TFdataFrame=TFdataFrame.append(pd.read_sql('SELECT DISTINCT '+ dataFrame.columns.values[0]+ ' AS fault_id,"'+datasetId+'" AS dataset_id FROM Faulty_records_'+str(i),con=db))
-            if not TFdataFrame.empty:
-                TFdataFrame.to_sql('TF',con=db,if_exists='replace',index=False)
+            #**#db.execute('Delete from trainingRecords where '+dataFrame.columns.values[0]+' in (SELECT '+ dataFrame.columns.values[0]+ ' FROM Faulty_records_'+str(i)+')')
+            db.execute('Update dataRecords_'+datasetId+' set status=actualFaults_'+i+ ' where status=suspicious_'+i)
     
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM trainingRecords", con=db)
-    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
+    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0], dataFrameTrain.columns.values[-1]], axis=1))
     
     #Tune and Train model
     autoencoder = Autoencoder()
@@ -96,7 +98,7 @@ def validate():
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
-    invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
+    #**#invalidityScoresPerFeature.to_sql('Invalidity_scores_per_feature', con=db, if_exists='replace', index=False)
 
     #Detect faulty records
     testing=Testing()  
@@ -109,12 +111,12 @@ def validate():
     #TODO: Update threshold
     
     #store all the detected faulty records in db
-    faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
+    #**#faultyRecordFrame.to_sql('Faulty_records_all', con=db, if_exists='replace', index=False)
 
 
     #store TPR in database for this run
-    if not TFdataFrame.empty:
-        truePositiveRate=float(len(TFdataFrame['fault_id'].unique().tolist()))/float(faultyRecordFrame.shape[0])
+    if not AFdataFrame.empty:
+        truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
@@ -134,7 +136,9 @@ def validate():
     #Show groups of faulty records as HTML tables
     i=0
     for dataFrame in dataFrames:
-        dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
+        #**#dataFrame.to_sql('Faulty_records_'+str(i), con=db, if_exists='replace', index=False)
+        #TODO#
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_'"+i+ " where "+dataFrame.columns.values[0]+" in "+dataFrame[dataFrame.columns.values[0]] )
         i=i+1
     numberOfClusters=i
     faulty_records_html=[]
@@ -143,12 +147,12 @@ def validate():
     cluster_interpretation=[]
     treeRules=[]
     for i in range(int(numberOfClusters)):
-        faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_"+str(i), con=db)
+        faulty_records=dataFrames[i]
         faulty_records_html.append(faulty_records.to_html())
         
         #Show descriptive graph for each group
-        cluster_scores=pd.read_sql(sql="SELECT * FROM Invalidity_scores_per_feature WHERE "+dataFrame.columns.values[0]+" IN "+"(SELECT "+dataFrame.columns.values[0]+" FROM Faulty_records_"+str(i)+")", con=db)
-        X=dataFrame.columns.values[1:-1]
+        cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
+        X=dataFrame.columns.values[1:]
         Y=cluster_scores.mean().tolist()[1:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
@@ -189,12 +193,12 @@ def evaluation():
     knownFaults=request.args.get('knownFaults')
 
     #A
-    faulty_records=pd.read_sql(sql="SELECT * FROM Faulty_records_all", con=db)
+    faulty_records=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
     A=set(faulty_records[faulty_records.columns.values[0]].astype(str).tolist())
     
-    #TF
-    TFdataFrame=pd.read_sql(sql="select distinct fault_id from TF where dataset_id like '"+datasetId+"'", con=db )  
-    TF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
+    #AF
+    AFdataFrame=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
+    AF=set(TFdataFrame['fault_id'].astype(str).unique().tolist())
     
     #E
     E=set()
