@@ -90,12 +90,19 @@ def validate():
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
     bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
-    #Assign invalidity scores
-    invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
 
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
+    
+    #Assign invalidity scores per record
+    #based on average of attribute's invalidity scores
+    #invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
+    #based on max of attribute's invalidity scores
+    invalidityScores=invalidityScoresPerFeature.max(axis=1).values.tolist()
+    
+    print "&&&&&&&&&&&"
+    print invalidityScores
 
     #Detect faulty records
     testing=Testing()  
