@@ -1,3 +1,4 @@
+import os
 from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
@@ -37,27 +38,36 @@ def importDataFrame():
     Import CSV data 
     """
     if request.method == 'POST':
-        dataPath = request.form.get("dataPath")
+        f = request.files['file']
+        #f.save(secure_filename(f.filename))
+
+        #dataPath = request.form.get("dataPath")
         interpretationMethod= request.form.getlist("interpretation")
         clusteringMethod= request.form.getlist("clustering")
 
         error = None
 
-        if not dataPath:
-            error = 'Data path is required.'
-
+        #if not dataPath:
+        #    error = 'Data path is required.'
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath).head(100)
+            dataFrame=dataCollection.importData("datasets/"+f.filename).head(50)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
-            datasetId=dataPath.replace('.csv','_').replace("-","_") + str(randint(1,10000))
+            datasetId=f.filename.replace('.csv','_').replace("-","_") + str(randint(1,10000))
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
 
     return render_template('import.html')
+
+@bp.route('/uploader', methods = ['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        f = request.files['file']
+        f.save(secure_filename(f.filename))
+    return 'file uploaded successfully'
 
 @bp.route('/validate', methods=["GET","POST"])
 def validate():
@@ -135,7 +145,6 @@ def validate():
     i=0
     for dataFrame in dataFrames:
         dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        #print "Update dataRecords_"+datasetId+" set status='suspicious_'"+str(i)+ " where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")"
         db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
@@ -182,7 +191,10 @@ def validate():
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
-        knownFaults = request.form.get("knownFaults")
+        f = request.files['file']
+        knownFaults='datasets/PD/'+f.filename
+        f.save(knownFaults)
+        #knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
@@ -206,7 +218,7 @@ def evaluation():
     E=set()
     if knownFaults:
         dataCollection=DataCollection()
-        E=dataCollection.csvToSet('datasets/PD/'+str(knownFaults))
+        E=dataCollection.csvToSet(str(knownFaults))
     
 
     evaluation=Evaluation()
