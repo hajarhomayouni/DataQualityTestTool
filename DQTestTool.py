@@ -39,6 +39,7 @@ def importDataFrame():
     if request.method == 'POST':
         dataPath = request.form.get("dataPath")
         interpretationMethod= request.form.getlist("interpretation")
+        clusteringMethod= request.form.getlist("clustering")
 
         error = None
 
@@ -47,13 +48,13 @@ def importDataFrame():
 
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataPath).head(50)
+            dataFrame=dataCollection.importData("datasets/"+dataPath).head(100)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
             datasetId=dataPath.replace('.csv','_').replace("-","_") + str(randint(1,10000))
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
-            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod))
+            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
 
     return render_template('import.html')
@@ -64,6 +65,7 @@ def validate():
     datasetId=request.args.get('datasetId')
     db=get_db()
     interpretationMethod=request.args.get('interpretationMethod')
+    clusteringMethod=request.args.get('clusteringMethod')
     truePositive=0.0
     truePositiveRate=0.0
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
@@ -93,24 +95,23 @@ def validate():
 
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
-    invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
     
     #Assign invalidity scores per record
     #based on average of attribute's invalidity scores
     #invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
-    invalidityScores=invalidityScoresPerFeature.max(axis=1).values.tolist()
+    invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
     
-    print "&&&&&&&&&&&"
-    print invalidityScores
-
+    #concat record id to the invalidity score per feature
+    invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
+    
     #Detect faulty records
     testing=Testing()  
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
+    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,95))#statistics.mean(invalidityScores))#nnp.percentile(invalidityScores,0.5))
     #Detect faulty records based on invalidity scores
-    faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature, invalidityScores,sum(invalidityScores)/len(invalidityScores))#np.percentile(invalidityScores,0.5))
+    faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,np.percentile(invalidityScores,95))#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame, invalidityScores,sum(invalidityScores)/len(invalidityScores)) #invalidityScores,np.percentile(invalidityScores,0.5))
+    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,np.percentile(invalidityScores,50))#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
 
     #store TPR in database for this run
@@ -119,16 +120,15 @@ def validate():
         db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
 
     #Cluster the faulty records
-    #If you want to work with data directly for clustering, use faultyRecordFrame directly for clustering. Now it clusters based on invelidity score per feature
-    #SOM
-    #exclude id and invalidity score
-    som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-2, 400)
-    dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
-    #
-    #kmeans
-    """kmeans=H2oKmeans()
-    bestModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
-    dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
+    #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
+    dataFrames=[]
+    if clusteringMethod=="som":
+        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-2, 50)
+        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+    elif clusteringMethod=="kprototypes":
+        kmeans=H2oKmeans()
+        bestModel=kmeans.tuneAndTrain(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     #
     
     #Update status of suspicious groups in database
@@ -156,14 +156,10 @@ def validate():
         #exclude status and invalidityScore columns
         X=dataFrame.columns.values[1:-2]
         Y=cluster_scores.mean().tolist()[1:]
-        print "************"
-        print X
-        print "*************"
-        print Y
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #indicate the attributes with high invalidity score values
-        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > statistics.mean(Y)]
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,90)]
         faulty_attributes=X[faulty_attributes_indexes]
         
         #Interpret each cluster
@@ -178,7 +174,7 @@ def validate():
             tree=SklearnRandomForest()
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
-
+        
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         cluster_dt_url.append(tree.visualize(treeModel,faulty_attributes,['valid','suspicious']))
         treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)

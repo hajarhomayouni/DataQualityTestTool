@@ -20,7 +20,7 @@ class H2oKmeans(Testing):
         categoricalColumns=dc.findCategorical(trainDataFrame)
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
         #
-        k = range(2,20)
+        k = range(1,len(trainDataFrame))
         hyperParameters = {"k":k}
         modelGrid = H2OGridSearch(H2OKMeansEstimator(ignore_const_cols=False),hyper_params=hyperParameters)
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)

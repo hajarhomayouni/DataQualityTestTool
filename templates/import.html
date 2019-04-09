@@ -8,42 +8,23 @@
     <label for="dataPath">Data Path:</label>
     <!--    <input name="dataPath" id="dataPath" required> -->
     <select class="form-control" id="dataPath" name="dataPath">
-        <!--<option value="measurement_person_100_3_17.csv">measurement_person_100_3_17.csv</option>
-        <option value="measurement_1000.csv">measurement_1000.csv</option>
-        <option value="heart.csv">heart.csv</option>
-        <option value="breast_cancer.csv">breast_cancer.csv</option>
-        <option value="measurement_person_1000_3_17.csv">measurement_person_1000_3_17.csv</option>
-        <option value="observation_observation_period_100_5_5.csv">observation_observation_period_100_5_5.csv</option>	
-        <option value="observation_observation_period_1000_50_50.csv">observation_observation_period_1000_50_50.csv</option>	
-        <option value="observation_observation_period_10000_500_500.csv">observation_observation_period_10000_322_404.csv</option>	
-        <option value="drug_exposure_observation_period_10000_500_500.csv">drug_exposure_observation_period_10000_500_500.csv</option>	
-        <option value="observation_observation_period_clean.csv">observation_observation_period_clean.csv</option>	
-        <option value="measurement-person_10000.csv">measurement-person_10000.csv</option>	
-        <option value="observation-person10000.csv">observation-person10000.csv</option>	
-        <option value="drug_exposure-person_10000.csv">drug_exposure-person_10000.csv</option>	
-        <option value="death-person_1871.csv">death-person_1871.csv</option>	
-        <option value="drug_exposure_10000.csv">drug_exposure_10000.csv</option>	
-        <option value="drug_exposure_100000.csv">drug_exposure_100000.csv</option>	
-        <option value="measurement_100000.csv">measurement_100000.csv</option>	
-        <option value="visit_occurrence_100000.csv">visit_occurrence_100000.csv</option>	
-        <option value="measurement_concept_complete.csv">measurement_concept_complete.csv</option>	
-        <option value="drug_exposure_concept_complete.csv">drug_exposure_concept_complete.csv</option>	
-	<option value="visit_occurrence_concept_complete.csv">visit_occurrence_concept_complete.csv </option>	
-
-        <option value="measurement_1000.csv">measurement_1000.csv</option>	
-        <option value="drug_exposure_1000.csv">drug_exposure_1000.csv</option>	
-	<option value="visit_occurrence_1000.csv">visit_occurrence_1000.csv</option>	-->
         <option value="drug_exposure_concept_preprocessed.csv">drug_exposure_concept_preprocessed.csv</option>	
         <option value="drug_exposure_concept_preprocessed_concepts_only.csv">drug_exposure_concept_preprocessed_concepts_only.csv</option>	
         <option value="pre-processed2.csv">pre-processed2.csv</option>	
 
     </select></br>
   <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
+    <label for="clusteringMethod">Fault Clustering Method:</label></br>
+    <label>K-prototypes</label><input type="checkbox" name="clustering" value="kprototypes" checked/> </br>
+    <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som"/> </br>
+  </p>
+
+    <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
     <label for="interpretationMethod">Fault Interpretation Method:</label></br>
-    <label>H2o Gradient Boosting</label><input type="checkbox" name="interpretation" value="H2o Gradient Boosting" checked/> </br>
-    <label>H2o Random Forest</label><input type="checkbox" name="interpretation" value="H2o Random Forest"/> </br>
-    <label>Sklearn Random Forest</label> <input type="checkbox" name="interpretation" value="Sklearn Random Forest"/> </br>
-    <label>Sklearn Decision Tree</label> <input type="checkbox" name="interpretation" value="Sklearn Decision Tree"/> </br>
+    <label>Random Forest</label><input type="checkbox" name="interpretation" value="H2o Random Forest" checked/> </br>
+    <label>Gradient Boosting</label><input type="checkbox" name="interpretation" value="H2o Gradient Boosting"/> </br>   
+    <!--<label>Sklearn Random Forest</label> <input type="checkbox" name="interpretation" value="Sklearn Random Forest"/> </br>
+    <label>Sklearn Decision Tree</label> <input type="checkbox" name="interpretation" value="Sklearn Decision Tree"/> </br> -->
   </p>
 
     <input type="submit" value="import">
