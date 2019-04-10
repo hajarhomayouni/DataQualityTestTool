@@ -12,8 +12,8 @@
      	 </select></br>
        	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
      	 <label for="clusteringMethod">Fault Clustering Method:</label></br>
-     	 <label>K-prototypes</label><input type="checkbox" name="clustering" value="kprototypes" checked/> </br>
-     	 <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som"/> </br>
+     	 <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som" checked/> </br>
+     	 <label>K-prototypes</label><input type="checkbox" name="clustering" value="kprototypes"/> </br>
        	 </p>
 	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
      	 <label for="interpretationMethod">Fault Interpretation Method:</label></br>
@@ -23,29 +23,5 @@
  </form>
 
 
-<!--  <form method="post" style="font-family:courier;" >
-    <label for="dataPath">Data Path:</label>
-    <select class="form-control" id="dataPath" name="dataPath">
-        <option value="drug_exposure_concept_preprocessed.csv">drug_exposure_concept_preprocessed.csv</option>	
-        <option value="drug_exposure_concept_preprocessed_concepts_only.csv">drug_exposure_concept_preprocessed_concepts_only.csv</option>	
-        <option value="pre-processed2.csv">pre-processed2.csv</option>	
-
-    </select></br>
-  <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
-    <label for="clusteringMethod">Fault Clustering Method:</label></br>
-    <label>K-prototypes</label><input type="checkbox" name="clustering" value="kprototypes" checked/> </br>
-    <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som"/> </br>
-  </p>
-
-    <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
-    <label for="interpretationMethod">Fault Interpretation Method:</label></br>
-    <label>Random Forest</label><input type="checkbox" name="interpretation" value="H2o Random Forest" checked/> </br>
-    <label>Gradient Boosting</label><input type="checkbox" name="interpretation" value="H2o Gradient Boosting"/> </br>   
-  </p>
-
-    <input type="submit" value="import">
-
-
-</form>-->
 
 {% endblock %}

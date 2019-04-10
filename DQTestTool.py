@@ -191,9 +191,11 @@ def validate():
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
-        f = request.files['file']
-        knownFaults='datasets/PD/'+f.filename
-        f.save(knownFaults)
+        knownFaults=""
+        if request.files:
+            f = request.files['file']
+            knownFaults='datasets/PD/'+f.filename
+            f.save(knownFaults)
         #knownFaults = request.form.get("knownFaults")
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
