@@ -101,14 +101,14 @@ def validate():
     hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
     l2Opt = [1e-4,1e-2]
     hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-    bestModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
+    bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
 
     #Assign invalidity scores per feature
-    invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestModel, dataFramePreprocessed)
+    invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
     
     #Assign invalidity scores per record
     #based on average of attribute's invalidity scores
-    #invalidityScores=autoencoder.assignInvalidityScore(bestModel, dataFramePreprocessed)
+    #invalidityScores=autoencoder.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
     invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
     
@@ -137,8 +137,8 @@ def validate():
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
         kmeans=H2oKmeans()
-        bestModel=kmeans.tuneAndTrain(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
-        dataFrames=kmeans.clusterFaultyRecords(bestModel,faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     #
     
     #Update status of suspicious groups in database
@@ -197,10 +197,14 @@ def validate():
             knownFaults='datasets/PD/'+f.filename
             f.save(knownFaults)
         #knownFaults = request.form.get("knownFaults")
+        if request.form.get('saveModel'):
+            modelID=request.form.get('modelID')
+            modelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/"+modelID, force=True)
+
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
          
-    return render_template('validate.html', data='@'.join(faulty_records_html),  numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
+    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

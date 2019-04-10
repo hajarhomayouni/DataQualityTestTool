@@ -18,5 +18,6 @@ build/
 
 static/images/*
 static/mojo/*
+static/model/*
 
 dictionary/

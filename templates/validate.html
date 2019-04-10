@@ -18,13 +18,11 @@
 	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
 	    <img src='{{fig_urls[loop.index0]}}' align="left" ></img></br>
 	    <img src="{{cluster_dt_url[loop.index0]}}" style="width:600px;height:300px;"></img></br>
-	    <!--<label for="Reason">Reason:</label></br>
-	    <label for="cluster">{{cluster_interpretation[loop.index0]|safe}}</label></br>
-	    <label for="Rules">Rules:</label></br>
-	    <label for="treeRules">{{treeRules[loop.index0]|safe}}</label></br>-->
 	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
     {% endfor %}
-    <input type="submit" name="revalidate" value="revalidate">
+    <input type="submit" name="revalidate" value="revalidate"></br></br>
+    <input name="modelID" id="modelID" value="{{datasetId}}"/>
+    <input type="submit" name="saveModel" value="save model">
     </br>
   </p>
   <p style="border:3px; border-style: solid;  border-color:#F08080; ">
