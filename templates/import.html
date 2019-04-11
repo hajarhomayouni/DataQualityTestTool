@@ -7,9 +7,14 @@
 
  <form  method = "POST" enctype = "multipart/form-data">
 	 <label for="dataPath">Data Path:</label>
-	 <input type = "file" name = "file" />
+	 <input type = "file" name = "dataRecords" />
 	 <input type = "submit" value="import"/>
      	 </select></br>
+       	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
+     	 <label for="constraintDiscoveryMethod">Constraint Discovery Method:</label></br>
+     	 <label>Autoencoder</label><input type="checkbox" name="autoencoder" value="autoencoder" checked/> </br>
+     	 <label>Previously Trained Model</label><input type="file" name="trainedModel"/> </br>
+       	 </p>
        	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
      	 <label for="clusteringMethod">Fault Clustering Method:</label></br>
      	 <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som" checked/> </br>

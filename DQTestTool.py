@@ -38,41 +38,37 @@ def importDataFrame():
     Import CSV data 
     """
     if request.method == 'POST':
-        f = request.files['file']
-        #f.save(secure_filename(f.filename))
-
-        #dataPath = request.form.get("dataPath")
+        trainedModelFilePath=""
         interpretationMethod= request.form.getlist("interpretation")
         clusteringMethod= request.form.getlist("clustering")
-
         error = None
-
-        #if not dataPath:
-        #    error = 'Data path is required.'
+        if request.files.get('trainedModel', None):
+            trainedModelFile=request.files['trainedModel']
+            trainedModelFilePath='static/model/'+trainedModelFile.filename
+            trainedModelFile.save(trainedModelFilePath)
+        if request.files.get('dataRecords', None):
+            dataRecordsFile = request.files['dataRecords']
+        else:
+            error="No data file is selected"
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+f.filename).head(50)
+            dataFrame=dataCollection.importData("datasets/"+dataRecordsFile.filename).head(50)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
-            datasetId=f.filename.replace('.csv','_').replace("-","_") + str(randint(1,10000))
+            datasetId=dataRecordsFile.filename.replace('.csv','_').replace("-","_") + str(randint(1,10000))
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
-            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
+            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
 
     return render_template('import.html')
 
-@bp.route('/uploader', methods = ['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        f = request.files['file']
-        f.save(secure_filename(f.filename))
-    return 'file uploaded successfully'
 
 @bp.route('/validate', methods=["GET","POST"])
 def validate():
     #Initializations
     datasetId=request.args.get('datasetId')
+    trainedModelFilePath=request.args.get('trainedModelFilePath')
     db=get_db()
     interpretationMethod=request.args.get('interpretationMethod')
     clusteringMethod=request.args.get('clusteringMethod')
@@ -97,11 +93,16 @@ def validate():
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0], dataFrameTrain.columns.values[-1]], axis=1))
     
     #Tune and Train model
+    h2o.init()   
     autoencoder = Autoencoder()
-    hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
-    l2Opt = [1e-4,1e-2]
-    hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-    bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
+    bestConstraintDiscoveryModel=H2OAutoEncoderEstimator()
+    if trainedModelFilePath!="":
+        bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
+    else:
+        hiddenOpt = [[50,50],[100,100], [5,5,5],[50,50,50]]
+        l2Opt = [1e-4,1e-2]
+        hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
+        bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
 
     #Assign invalidity scores per feature
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
@@ -196,15 +197,15 @@ def validate():
             f = request.files['file']
             knownFaults='datasets/PD/'+f.filename
             f.save(knownFaults)
-        #knownFaults = request.form.get("knownFaults")
-        if request.form.get('saveModel'):
-            modelID=request.form.get('modelID')
-            modelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/"+modelID, force=True)
-
+        if request.form.get('revalidate'):
+            trainedModelFilePath=""
+            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
-         
-    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
+
+    bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
+    bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
+    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

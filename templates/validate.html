@@ -21,8 +21,8 @@
 	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
-    <input name="modelID" id="modelID" value="{{datasetId}}"/>
-    <input type="submit" name="saveModel" value="save model">
+    <a href="{{bestModelFile}}" target="blank">save model</a>
+	    <!--<button class'btn btn-default'>save model</button></a>-->
     </br>
   </p>
   <p style="border:3px; border-style: solid;  border-color:#F08080; ">
