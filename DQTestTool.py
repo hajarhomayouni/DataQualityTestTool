@@ -66,7 +66,6 @@ def importDataFrame():
 
 @bp.route('/validate', methods=["GET","POST"])
 def validate():
-    print "1"
     #Initializations
     datasetId=request.args.get('datasetId')
     trainedModelFilePath=request.args.get('trainedModelFilePath')
@@ -77,7 +76,7 @@ def validate():
     truePositiveRate=0.0
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
-    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%' or status like 'suspicious_%'", con=db)
+    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
 
     dataCollection=DataCollection()
     #remove column id and status for analysis
@@ -85,22 +84,20 @@ def validate():
 
     #Prepare Training data: Remove actual faults from training data; change their status from clean to actualFaults_i   
     if request.method == "POST":
-     print "2"
+     trainedModelFilePath=""     
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
+        print numberOfClusters
         for i in range(int(numberOfClusters)):
-            if i in request.form.getlist('Group'):
+            if str(i) in request.form.getlist('Group'):
                 db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
             else:
-                db.execute("Update dataRecords_"+datasetId+" set status='clear' where status='suspicious_"+str(i)+"'")
+                db.execute("Update dataRecords_"+datasetId+" set status='clean' where status='suspicious_"+str(i)+"'")
 
-    print "3"
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0], dataFrameTrain.columns.values[-1]], axis=1))
-    
     #Tune and Train model
     h2o.init()   
     autoencoder = Autoencoder()
@@ -161,7 +158,7 @@ def validate():
     i=0
     for dataFrame in dataFrames:
         dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where status='clean' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
     numberOfClusters=i
@@ -207,21 +204,16 @@ def validate():
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
-        print "4"
         knownFaults=""
         if request.files:
             f = request.files['file']
             knownFaults='datasets/PD/'+f.filename
             f.save(knownFaults)
-        if request.form.get('revalidate'):
-            trainedModelFilePath=""
-            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
 
     bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
     bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
-    print "5"
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
 @bp.route('/evaluation', methods=["GET","POST"])

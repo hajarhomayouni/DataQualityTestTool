@@ -24,9 +24,6 @@ class Evaluation:
 
     @staticmethod
     def truePositiveGrowthRate(score):
-        print score
-        print "^^^^^^^^^^^^^^^^^^^^^^^^^"
-        print score['true_positive_rate']
         beginingTPR=score['true_positive_rate'].iloc[0]
         endingTPR=score['true_positive_rate'].iloc[-1]
         NR=float(len(score['true_positive_rate'].tolist()))
