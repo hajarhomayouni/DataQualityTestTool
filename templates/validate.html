@@ -11,19 +11,9 @@
  
   <p> <!--style="border:3px; border-style: solid;  border-color:#FFA07A; "-->
     <label for="numberOfClusters">Number of groups:</label>
-    <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
+    <input name="numberOfClusters" id="numberOfClusters" value="{{data}}"/>
     </br>
-    {%for item in data.split('@')%}
-	    <label for="group">Group_{{loop.index0}}</label>
-	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
-	    <img src='{{fig_urls[loop.index0]}}' align="left" ></img></br>
-	    <img src="{{cluster_dt_url[loop.index0]}}" style="width:600px;height:300px;"></img></br>
-	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
-    {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
-    <a href="{{bestModelFile}}" target="blank">save model</a>
-	    <!--<button class'btn btn-default'>save model</button></a>-->
-    </br>
   </p>
   <p style="border:3px; border-style: solid;  border-color:#F08080; ">
     <label for="knownFaults">Known Faults:</label>    
