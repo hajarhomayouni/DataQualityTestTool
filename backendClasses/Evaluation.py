@@ -6,7 +6,10 @@ class Evaluation:
     @staticmethod
     def previouslyDetectedFaultyRecords(A, E):
         common=E.intersection(A)
-        return float(len(common))/ float(len(E))
+        if len(E)>0:
+            return float(len(common))/ float(len(E))
+        else:
+            return 0.0
 
     @staticmethod
     def newlyDetectedFaultyRecords(A, E, TF):
@@ -14,10 +17,16 @@ class Evaluation:
 
     @staticmethod
     def unDetectedFaultyRecords(A, E):
-        return float(len(E.difference(A)))/float(len(E))
+        if len(E)>0:
+            return float(len(E.difference(A)))/float(len(E))
+        else:
+            return 1.0
 
     @staticmethod
     def truePositiveGrowthRate(score):
+        print score
+        print "^^^^^^^^^^^^^^^^^^^^^^^^^"
+        print score['true_positive_rate']
         beginingTPR=score['true_positive_rate'].iloc[0]
         endingTPR=score['true_positive_rate'].iloc[-1]
         NR=float(len(score['true_positive_rate'].tolist()))

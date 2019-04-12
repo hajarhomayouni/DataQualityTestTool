@@ -66,6 +66,7 @@ def importDataFrame():
 
 @bp.route('/validate', methods=["GET","POST"])
 def validate():
+    print "1"
     #Initializations
     datasetId=request.args.get('datasetId')
     trainedModelFilePath=request.args.get('trainedModelFilePath')
@@ -75,8 +76,8 @@ def validate():
     truePositive=0.0
     truePositiveRate=0.0
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
-    #AFdataFrame: stores all actual faults
-    AFdataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
+    #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
+    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%' or status like 'suspicious_%'", con=db)
 
     dataCollection=DataCollection()
     #remove column id and status for analysis
@@ -84,11 +85,19 @@ def validate():
 
     #Prepare Training data: Remove actual faults from training data; change their status from clean to actualFaults_i   
     if request.method == "POST":
+     print "2"
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
-        for  i in request.form.getlist('Group'):
-            db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
-    
+        for i in range(int(numberOfClusters)):
+            if i in request.form.getlist('Group'):
+                db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+            else:
+                db.execute("Update dataRecords_"+datasetId+" set status='clear' where status='suspicious_"+str(i)+"'")
+
+    print "3"
+    #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
+    AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
+
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0], dataFrameTrain.columns.values[-1]], axis=1))
     
@@ -125,10 +134,16 @@ def validate():
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,np.percentile(invalidityScores,50))#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
 
-    #store TPR in database for this run
+    #store different scores in database for this run
     if not AFdataFrame.empty:
         truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
-        db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate) VALUES (?, ?, ?, ?)',(datetime.datetime.now(), datasetId, truePositiveRate, 1-truePositiveRate))
+        falsePositiveRate=1.0-truePositiveRate
+        falseNegativeRate=0.0
+
+        if not AFdataFrameOld.empty:
+            falseNegativeRate=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()).difference(set(AFdataFrame[dataFrame.columns.values[0]].unique().tolist())))/len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()))
+        trueNegativeRate=1-falseNegativeRate
+        db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId, truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
 
     #Cluster the faulty records
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
@@ -192,6 +207,7 @@ def validate():
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
     if request.method == 'POST':
+        print "4"
         knownFaults=""
         if request.files:
             f = request.files['file']
@@ -205,6 +221,7 @@ def validate():
 
     bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
     bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
+    print "5"
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
 @bp.route('/evaluation', methods=["GET","POST"])
@@ -214,12 +231,12 @@ def evaluation():
     knownFaults=request.args.get('knownFaults')
 
     #A
-    faulty_records=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
-    A=set(faulty_records[faulty_records.columns.values[0]].astype(str).tolist())
+    suspiciousRecords=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
+    A=set(suspiciousRecords[suspiciousRecords.columns.values[0]].astype(str).tolist())
     
     #AF
-    AFdataFrame=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
-    AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
+    actualFaults=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
+    AF=set(actualFaults[actualFaults.columns.values[0]].astype(str).unique().tolist())
     
     #E
     E=set()
@@ -232,17 +249,16 @@ def evaluation():
     score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
     
     #statistics    
-    #TPR=evaluation.truePositiveRate(A,TF)
-    TPR=0
-    #TPGR=evaluation.truePositiveGrowthRate(score)
-    TPGR=0
-    #NR=evaluation.numberOfRuns(score)
-    NR=0
+    TPR=evaluation.truePositiveRate(A,AF)
+    TPGR=evaluation.truePositiveGrowthRate(score)
+    NR=evaluation.numberOfRuns(score)
     PD=evaluation.previouslyDetectedFaultyRecords(A,E)
+    SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
     ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
     UD=evaluation.unDetectedFaultyRecords(A, E)
 
-    #TODO:save
+    db.execute("Update scores set previously_detected="+str(PD)+", suspicious_detected="+str(SD)+ ", undetected="+str(UD)+", newly_detected="+str(ND)+" where dataset_id like '"+datasetId+"'")
+    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
 
     return render_template('evaluation.html',  score=score.to_html(), TF=float(len(AF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
 
