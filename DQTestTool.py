@@ -52,7 +52,7 @@ def importDataFrame():
             error="No data file is selected"
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataRecordsFile.filename).head(50)
+            dataFrame=dataCollection.importData("datasets/"+dataRecordsFile.filename).sample(100)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
@@ -87,7 +87,6 @@ def validate():
      trainedModelFilePath=""     
      numberOfClusters=request.form["numberOfClusters"]
      if numberOfClusters:
-        print numberOfClusters
         for i in range(int(numberOfClusters)):
             if str(i) in request.form.getlist('Group'):
                 db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
