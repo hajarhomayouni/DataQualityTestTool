@@ -82,16 +82,23 @@ def validate():
     #remove column id and status for analysis
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0], dataFrame.columns.values[-1]], axis=1))
 
-    #Prepare Training data: Remove actual faults from training data; change their status from clean to actualFaults_i   
     if request.method == "POST":
-     trainedModelFilePath=""     
-     numberOfClusters=request.form["numberOfClusters"]
-     if numberOfClusters:
-        for i in range(int(numberOfClusters)):
-            if str(i) in request.form.getlist('Group'):
-                db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
-            else:
-                db.execute("Update dataRecords_"+datasetId+" set status='clean' where status='suspicious_"+str(i)+"'")
+        knownFaults=""
+        if request.files:
+            f = request.files['file']
+            knownFaults='datasets/PD/'+f.filename
+            f.save(knownFaults)
+        if request.form.get('evaluation'):
+            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
+        #Prepare Training data: Remove actual faults from training data; change their status from clean to actualFaults_i   
+        trainedModelFilePath=""     
+        numberOfClusters=request.form["numberOfClusters"]
+        if numberOfClusters:
+            for i in range(int(numberOfClusters)):
+                if str(i) in request.form.getlist('Group'):
+                    db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                else:
+                    db.execute("Update dataRecords_"+datasetId+" set status='clean' where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'")
 
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
@@ -131,15 +138,17 @@ def validate():
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
 
     #store different scores in database for this run
+    truePositiveRate=0.0
     if not AFdataFrame.empty:
         truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
-        falsePositiveRate=1.0-truePositiveRate
-        falseNegativeRate=0.0
-
-        if not AFdataFrameOld.empty:
-            falseNegativeRate=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()).difference(set(AFdataFrame[dataFrame.columns.values[0]].unique().tolist())))/len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()))
-        trueNegativeRate=1-falseNegativeRate
-        db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId, truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
+    falsePositiveRate=1.0-truePositiveRate
+    falseNegativeRate=0.0
+    diffDetection=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()).difference(set(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))) 
+    oldDetected=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist())) 
+    if not AFdataFrameOld.empty:
+        falseNegativeRate=float(diffDetection)/float(oldDetected)
+    trueNegativeRate=1-falseNegativeRate
+    db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId, truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
 
     #Cluster the faulty records
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
@@ -158,6 +167,8 @@ def validate():
     for dataFrame in dataFrames:
         dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
         db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where status='clean' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+
+        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='actualtFaults_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
     numberOfClusters=i
@@ -202,15 +213,6 @@ def validate():
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))
        
-    if request.method == 'POST':
-        knownFaults=""
-        if request.files:
-            f = request.files['file']
-            knownFaults='datasets/PD/'+f.filename
-            f.save(knownFaults)
-        if request.form.get('evaluation'):
-            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
-
     bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
     bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
