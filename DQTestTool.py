@@ -48,11 +48,13 @@ def importDataFrame():
             trainedModelFile.save(trainedModelFilePath)
         if request.files.get('dataRecords', None):
             dataRecordsFile = request.files['dataRecords']
+            dataRecordsFilePath="datasets/"+dataRecordsFile.filename
+            dataRecordsFile.save(dataRecordsFilePath)
         else:
             error="No data file is selected"
         if error is None:
             dataCollection=DataCollection()
-            dataFrame=dataCollection.importData("datasets/"+dataRecordsFile.filename).sample(100)
+            dataFrame=dataCollection.importData(dataRecordsFilePath).head(300)
             db=get_db()
             #all the data records are clean by default
             dataFrame['status']='clean'
@@ -133,6 +135,9 @@ def validate():
     faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,np.percentile(invalidityScores,95))#statistics.mean(invalidityScores))#nnp.percentile(invalidityScores,0.5))
     #Detect faulty records based on invalidity scores
     faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,np.percentile(invalidityScores,95))#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
+    columnNames=faultyRecordFrame.columns
+    #columnNames.remove('status')
+    faultyInvalidityScoreFrame.columns=columnNames.drop('status')
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,np.percentile(invalidityScores,50))#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
@@ -154,14 +159,16 @@ def validate():
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
     dataFrames=[]
     if clusteringMethod=="som":
-        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-2, 50)
+        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-2, 400)
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
+        faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)
         kmeans=H2oKmeans()
-        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1))
-        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFrame.drop([faultyRecordFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
-    #
-    
+        """bestClusteringModel=kmeans.tuneAndTrain(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
+        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+
     #Update status of suspicious groups in database
     i=0
     for dataFrame in dataFrames:

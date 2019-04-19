@@ -39,17 +39,37 @@ class DataCollection:
             dataFrame[col]=le.transform(dataFrame[col])
         dataFrame[dataFrame.columns.values]=min_max.fit_transform(dataFrame[dataFrame.columns.values])"""       
         return dataFrame
+
+
+
     
     def findCategorical(self,df_data):
         categorical_columns=[]
         for column in df_data.columns.values:
-            if df_data[column].dtype != np.number:
-                df_data[column]=df_data[column].apply(hash)
-            if all(float(x).is_integer() for x in df_data[column]):
+            if self.is_number(df_data.iloc[1][column])==False:
+                print column
+                print "%%%%%%%%%%%%%%%%%%%%%%"
+                #df_data[column]=df_data[column].apply(hash)
                 categorical_columns.append(column)
+            #if all(float(x).is_integer() for x in df_data[column]):
+            #    categorical_columns.append(column)
         return categorical_columns
     
-    
+    def is_number(self,s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            pass
+        
+        try:
+            import unicodedata
+            unicodedata.numeric(s)
+            return True
+        except (TypeError, ValueError):
+            pass
+        return False    
+
     @staticmethod
     def selectFeatures(dataFrame):
         #use feature selection/prioritization methods
