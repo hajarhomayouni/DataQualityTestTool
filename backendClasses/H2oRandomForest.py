@@ -20,11 +20,11 @@ class H2oRandomForest(Interpretation):
         """dc=DataCollection()
         categoricalColumns=dc.findCategorical(trainDataFrame[featuresList])
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
-        model=H2ORandomForestEstimator(ntrees=1,max_depth=5)#binomial_double_trees=True,mtries=len(trainDataHex.columns)-1)
+        model=H2ORandomForestEstimator(ntrees=3,max_depth=5)#binomial_double_trees=True,mtries=len(trainDataHex.columns)-1)
         model.train(y=y, x=list(featuresList),training_frame=trainDataHex)
         return model
     
-    def visualize(self,model,featuresList, targetValues):
+    def visualize(self,model,featuresList, targetValues, tree_id=0):
         randName=str(random.randint(1,100000000))
         mojo_file_name = "./static/mojo/mojo_"+randName+".zip"
         h2o_jar_path= './venv/lib/python2.7/site-packages/h2o/backend/bin/h2o.jar'
@@ -32,7 +32,7 @@ class H2oRandomForest(Interpretation):
         gv_file_path = "./static/mojo/gv_"+randName+".gv"
         image_file_path="./static/images/img_"+randName+".png"
         model.download_mojo(mojo_file_name)
-        self.generateGraphviz(h2o_jar_path, mojo_full_path, gv_file_path, image_file_path, tree_id = 0)
+        self.generateGraphviz(h2o_jar_path, mojo_full_path, gv_file_path, image_file_path, tree_id = tree_id)
         self.generateTreeImage(gv_file_path, image_file_path, 0)
         return "/static/images/img_"+randName+".png"
 
@@ -45,7 +45,7 @@ class H2oRandomForest(Interpretation):
         else: 
             print("Error: Graphviz file " + gv_file_path + " could not be generated.")
 
-    def generateTreeImage(self,gv_file_path, image_file_path, tree_id):
+    def generateTreeImage(self,gv_file_path, image_file_path, tree_id=0):
         result = subprocess.call(["dot", "-Tpng", gv_file_path, "-o", image_file_path], shell=False)
         result = subprocess.call(["ls",image_file_path], shell = False)
         if result is 0:

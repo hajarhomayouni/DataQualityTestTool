@@ -198,7 +198,7 @@ def validate():
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #indicate the attributes with high invalidity score values
-        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,90)]
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,75)]
         faulty_attributes=X[faulty_attributes_indexes]
         
         #Interpret each cluster
@@ -215,7 +215,13 @@ def validate():
             tree=H2oRandomForest()
         
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
-        cluster_dt_url.append(tree.visualize(treeModel,faulty_attributes,['valid','suspicious']))
+        #number of generated trees = 3
+        numberOfTrees=3
+        decisionTreeImageUrls=[]
+        for i in range(numberOfTrees):
+            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
+        #
+        cluster_dt_url.append(decisionTreeImageUrls)
         treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))

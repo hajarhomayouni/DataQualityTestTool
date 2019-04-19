@@ -17,7 +17,9 @@
 	    <label for="group">Group_{{loop.index0}}</label>
 	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
 	    <img src='{{fig_urls[loop.index0]}}' align="left" ></img></br>
-	    <img src="{{cluster_dt_url[loop.index0]}}" style="width:600px;height:300px;"></img></br>
+	    {%for image in cluster_dt_url[loop.index0] %}
+	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
+	    {% endfor %}
 	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
