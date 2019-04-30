@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>An Automated Data Quality Test Apporach | Evaluation | Colorado State University, Fort Collins CO </title>
+    <link href="https://fonts.googleapis.com/css?family=Bitter" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="styles.css">
+    
+</head>
+    <nav>An Automated Data Quality Test Apporach</nav>
+    <div id="wrapper">
+        <header><center><a href ="index.html"><img src="FINAL_logo.jpg"></a></center></header>
+ <b> <h2>Evaluation</h2></b>
+<p style="border:3px; border-style:solid; border-color:darkgreen; padding: 1em; width:800px;">
+<b> A: Set of faulty records detected by our approach <br>
+ E: Set of faulty records detected by existing approach <br>
+TF: Set of actual faulty records detected  by our approach <br></b>
+</p>
+
+<p style="border:3px; border-style:solid; border-color:#008000; padding: 1em; width:800px;">
+<b>|A|:{{A}}<br>
+|E|:{{E}}<br>
+|TF|:{{TF}}<br>
+True Positive Rate (TPR): |TF|/|A|= {{TPR}}<br> 
+Number of Runs (NR)= {{NR}}<br>
+True Positive Growth Rate (TPGR): ((endingTPR/beginingTPR)^(1/NR))-1= {{TPGR}}<br>
+Previously Detected faulty records (PD): |E^A|/|E|= {{PD}} <br>
+Newly Detected faulty records (ND): |TF-E|/|A|= {{ND}} <br>
+Undetected faulty records (UD): |E-A|/|E|= {{UD}} <br></b>
+
+</p>
+
+<b> <form method="get">
+<label for="scores">True/False Positive Rates: </label>
+
+{{score|safe}}
+<input type="submit" name="save" value="save">
+
+  </form></b>
+<footer><b>Department of Computer Science Colorado State University</b>
+   <b><br>Hajar Homayouni, Sudipto Ghosh, Indrakshi Ray</b>
+     </footer>
+
+</html>
