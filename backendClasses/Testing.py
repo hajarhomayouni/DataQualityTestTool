@@ -16,7 +16,7 @@ class Testing:
         outlier_indexes, = np.where(invalidityScores > threshold)
         for outlier in range(len(outlier_indexes)):
             outlierFrame.loc[outlier]=testDataFrame.iloc[outlier_indexes[outlier]]
-        outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
+        #outlierFrame['invalidityScore']=invalidityScores[outlier_indexes]
         return outlierFrame
     
     @staticmethod
@@ -25,7 +25,7 @@ class Testing:
         normal_indexes, = np.where(invalidityScores <= threshold)
         for normal in range(len(normal_indexes)):
             normalFrame.loc[normal]=testDataFrame.iloc[normal_indexes[normal]]
-        normalFrame['invalidityScore']=invalidityScores[normal_indexes]
+        #normalFrame['invalidityScore']=invalidityScores[normal_indexes]
         return normalFrame
 
     @staticmethod
@@ -43,7 +43,7 @@ class Testing:
         for normal in range(len(list(normal_indexes))):
             normalFrame.loc[normal]=testDataFrame.iloc[list(normal_indexes)[normal]]
 
-        normalFrame['invalidityScore']=invalidityScores[list(normal_indexes)]
+        #normalFrame['invalidityScore']=invalidityScores[list(normal_indexes)]
         return normalFrame
 
 

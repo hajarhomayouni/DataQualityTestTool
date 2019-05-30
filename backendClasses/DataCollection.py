@@ -31,13 +31,15 @@ class DataCollection:
                 categoricalColumns.append(column)            
 
 
-        min_max=MinMaxScaler()
         le=LabelEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]
             le.fit(data.values)
-            dataFrame[col]=le.transform(dataFrame[col])
-        dataFrame[dataFrame.columns.values]=min_max.fit_transform(dataFrame[dataFrame.columns.values])"""       
+            dataFrame[col]=le.transform(dataFrame[col])"""
+        min_max=MinMaxScaler()
+        for column in dataFrame.columns:
+            if dataFrame[column].dtype==np.number:
+                dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
         return dataFrame
 
 
