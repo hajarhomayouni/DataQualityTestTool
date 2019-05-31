@@ -151,12 +151,14 @@ def validate():
     print "******invalidityScoresPerFeature after concatinating with id"
     print invalidityScoresPerFeature
 
-    faultyThreshold=np.percentile(invalidityScores,50)    
-    faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
+    faultyThreshold=np.percentile(invalidityScores,90)    
+    #faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
+    print "***faulty threshold"
+    print faultyThreshold
     normalThreshold=np.percentile(invalidityScores,50)
     #Detect faulty records
     testing=Testing()  
-    faultyRecordFrame=testing.detectFaultyRecords(dataFrame, invalidityScores,faultyThreshold)#statistics.mean(invalidityScores))#nnp.percentile(invalidityScores,0.5))
+    faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where invalidityScore >="+str(faultyThreshold), con=db)    
     print "*********faultyRecordFrame"
     print faultyRecordFrame
     #Detect faulty records based on invalidity scores
@@ -187,14 +189,14 @@ def validate():
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
     dataFrames=[]
     if clusteringMethod=="som":
-        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-2, 400)
-        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
+        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-3, 400)
+        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore', 'status'],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
         faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)
         kmeans=H2oKmeans()
         """bestClusteringModel=kmeans.tuneAndTrain(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1))
         dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
-        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
+        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore','status'],axis=1))
         dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
 
     #Update status of suspicious groups in database
@@ -216,7 +218,9 @@ def validate():
     #show the suspicious groups as HTML tables
     for i in range(int(numberOfClusters)):
         faulty_records=dataFrames[i]
-        faulty_records_html.append(faulty_records.to_html())
+        print "*****Faulty_records_to-show"
+        print faulty_records
+        faulty_records_html.append(faulty_records.drop(['status'],axis=1).to_html())
         
         #Show descriptive graph for each group
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
