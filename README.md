@@ -34,9 +34,12 @@ pip install flask<br/>
 flask init-db<br/>
 
 **Create local folders in the project directory**<br/>
-mkdir static
-mkdir static/mojo
-mkdir static/images
+mkdir static<br/>
+mkdir static/mojo<br/>
+mkdir static/images<br/>
+mkdir static/model<br/>
+mkdir datasets<br/>
+mkdir datasets/PD<br/>
 
 **Setup Flask**<br/>
 export FLASK_APP=Project_directory<br/>
