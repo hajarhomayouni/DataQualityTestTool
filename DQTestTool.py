@@ -83,7 +83,10 @@ def validate():
 
     dataCollection=DataCollection()
     #remove column id for analysis
-    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0]], axis=1))
+    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status'], axis=1))
+    print "dataFramePreprocessed**************************"
+    print dataFramePreprocessed
+
     faultyThresholdByExpert=0.0
     if request.method == "POST":
         knownFaults=""
@@ -100,18 +103,29 @@ def validate():
         if numberOfClusters:
             for i in range(int(numberOfClusters)):
                 if str(i) in request.form.getlist('Group'):
-                    db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set invalidityScore=1.0, status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                    
                 else:
-                    maxInvalidityScoreOfNormalData.append(pd.read_sql(sql="select invalidityScore from dataRecords_"+datasetId+" where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'",con=db).iloc[0,0])
-                    db.execute("Update dataRecords_"+datasetId+" set status='clean' where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'")
-            if len(maxInvalidityScoreOfNormalData)>0:
-                faultyThresholdByExpert=max(maxInvalidityScoreOfNormalData)
+                    #maxInvalidityScoreOfNormalData.append(pd.read_sql(sql="select invalidityScore from dataRecords_"+datasetId+" where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'",con=db).iloc[0,0])
+                    db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'")
+            #if len(maxInvalidityScoreOfNormalData)>0: faultyThresholdByExpert=max(maxInvalidityScoreOfNormalData)
+    #make the invalidity scores of all non-faulty records equal to zero
+    db.execute("Update dataRecords_"+datasetId+" set invalidityScore=0.0 where  status='clean'")
 
-
+    print "database right after revalidate************"
+    print pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db)
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
-    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0]], axis=1))
+    print "AFdataFrame********************************"
+    print AFdataFrame
+    #As I added invalidity score as a new column, I should not remove faults from training set
+    #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
+
+    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status'], axis=1))
+    print "dataFrameTrainPreprocessed***********"
+    print dataFrameTrainPreprocessed
+
     #Tune and Train model
     h2o.init()   
     autoencoder = Autoencoder()
@@ -119,11 +133,12 @@ def validate():
     if trainedModelFilePath!="":
         bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
     else:
-        hiddenOpt = [[5],[50],[100],[5,5],[50,50],[100,100], [5,5,5],[50,50,50],[100,100,100]]
+        hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
         l2Opt = [1e-4,1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=200,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
-
+        bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
+    print "*******BestConstraintDiscoveryModel"
+    print bestConstraintDiscoveryModel.summary()
     #Assign invalidity scores per feature
     print "******dataFramePreprocessed"
     print dataFramePreprocessed
@@ -151,10 +166,16 @@ def validate():
     print "******invalidityScoresPerFeature after concatinating with id"
     print invalidityScoresPerFeature
 
+    #assign threshod. It increases based on a rate
+    NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
+    NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
+    print "NR***********************************"
+    print NR
     faultyThreshold=np.percentile(invalidityScores,90)    
-    #faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
-    print "***faulty threshold"
+    faultyThreshold=faultyThreshold+NR*0.3*faultyThreshold
+    print "faultyThreshold**********************"
     print faultyThreshold
+    #faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
     normalThreshold=np.percentile(invalidityScores,50)
     #Detect faulty records
     testing=Testing()  
@@ -167,7 +188,7 @@ def validate():
     print faultyInvalidityScoreFrame
     columnNames=faultyRecordFrame.columns
     #columnNames.remove('status')
-    faultyInvalidityScoreFrame.columns=columnNames#.drop('status','invalidityScore')
+    faultyInvalidityScoreFrame.columns=columnNames.drop('status')
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,normalThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
@@ -189,14 +210,14 @@ def validate():
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
     dataFrames=[]
     if clusteringMethod=="som":
-        som = SOM(4,4, len(faultyInvalidityScoreFrame.columns.values)-3, 400)
-        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore', 'status'],axis=1), faultyRecordFrame)
+        som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-2, 400)
+        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
         faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)
         kmeans=H2oKmeans()
         """bestClusteringModel=kmeans.tuneAndTrain(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1))
         dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
-        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore','status'],axis=1))
+        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1))
         dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)
 
     #Update status of suspicious groups in database
@@ -224,9 +245,14 @@ def validate():
         
         #Show descriptive graph for each group
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
-        #exclude status and invalidityScore columns
+        #exclude invalidityScore columns
         X=dataFrame.columns.values[1:-2]
-        Y=cluster_scores.mean().tolist()[1:-2]
+        print "***********X**************"
+        print X
+        print "**********Y***************"
+        
+        Y=cluster_scores.mean().tolist()[1:-1]
+        print Y
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #indicate the attributes with high invalidity score values
