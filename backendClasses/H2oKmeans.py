@@ -41,7 +41,6 @@ class H2oKmeans(Testing):
         testDataHex[categoricalColumns] = testDataHex[categoricalColumns].asfactor()
         #
         labels_test=h2o.as_list(model.predict(testDataHex))["predict"].tolist()
-        print type(labels_test)
         groups_of_faultyRecords=[]
         centroids=len(model.centers())
         for cluster in range(centroids):

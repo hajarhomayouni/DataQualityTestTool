@@ -84,8 +84,6 @@ def validate():
     dataCollection=DataCollection()
     #remove column id for analysis
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status'], axis=1))
-    print "dataFramePreprocessed**************************"
-    print dataFramePreprocessed
 
     faultyThresholdByExpert=0.0
     if request.method == "POST":
@@ -112,19 +110,13 @@ def validate():
     #make the invalidity scores of all non-faulty records equal to zero
     db.execute("Update dataRecords_"+datasetId+" set invalidityScore=0.0 where  status='clean'")
 
-    print "database right after revalidate************"
-    print pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db)
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    print "AFdataFrame********************************"
-    print AFdataFrame
     #As I added invalidity score as a new column, I should not remove faults from training set
     #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
 
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status'], axis=1))
-    print "dataFrameTrainPreprocessed***********"
-    print dataFrameTrainPreprocessed
 
     #Tune and Train model
     h2o.init()   
@@ -137,55 +129,33 @@ def validate():
         l2Opt = [1e-4,1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
         bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
-    print "*******BestConstraintDiscoveryModel"
-    print bestConstraintDiscoveryModel.summary()
     #Assign invalidity scores per feature
-    print "******dataFramePreprocessed"
-    print dataFramePreprocessed
     invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
-    print "****invalidityScoresPerFeature***" 
-    print invalidityScoresPerFeature
     #Assign invalidity scores per record
     #based on average of attribute's invalidity scores
     #invalidityScores=autoencoder.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
     invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
-    print "***invalidityScores**************"
-    print invalidityScores
-
-    #concat record id to the invalidity score
     invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
-    print "*****invalidityScoresWithId******"
-    print invalidityScoresWithId
     for index, row in invalidityScoresWithId.iterrows():
         db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row['invalidityScore'])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))
     # 
     
     #concat record id to the invalidity score per feature
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
-    print "******invalidityScoresPerFeature after concatinating with id"
-    print invalidityScoresPerFeature
 
     #assign threshod. It increases based on a rate
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
-    print "NR***********************************"
-    print NR
     faultyThreshold=np.percentile(invalidityScores,90)    
     faultyThreshold=faultyThreshold+NR*0.3*faultyThreshold
-    print "faultyThreshold**********************"
-    print faultyThreshold
     #faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
     normalThreshold=np.percentile(invalidityScores,50)
     #Detect faulty records
     testing=Testing()  
     faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where invalidityScore >="+str(faultyThreshold), con=db)    
-    print "*********faultyRecordFrame"
-    print faultyRecordFrame
     #Detect faulty records based on invalidity scores
     faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
-    print "**********faultyInvalidityScoreFrame"
-    print faultyInvalidityScoreFrame
     columnNames=faultyRecordFrame.columns
     #columnNames.remove('status')
     faultyInvalidityScoreFrame.columns=columnNames.drop('status')
@@ -239,20 +209,13 @@ def validate():
     #show the suspicious groups as HTML tables
     for i in range(int(numberOfClusters)):
         faulty_records=dataFrames[i]
-        print "*****Faulty_records_to-show"
-        print faulty_records
         faulty_records_html.append(faulty_records.drop(['status'],axis=1).to_html())
         
         #Show descriptive graph for each group
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
         #exclude invalidityScore columns
         X=dataFrame.columns.values[1:-2]
-        print "***********X**************"
-        print X
-        print "**********Y***************"
-        
         Y=cluster_scores.mean().tolist()[1:-1]
-        print Y
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
         #indicate the attributes with high invalidity score values
@@ -297,8 +260,6 @@ def evaluation():
     #A
     suspiciousRecords=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
     A=set(suspiciousRecords[suspiciousRecords.columns.values[0]].astype(str).tolist())
-    print "@@A@@@@@@@@@@@@@"
-    print A
     
     #AF
     actualFaults=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
@@ -309,8 +270,6 @@ def evaluation():
     if knownFaults:
         dataCollection=DataCollection()
         E=dataCollection.csvToSet(str(knownFaults))
-    print "@@@@E@@@@@@@@"
-    print E
 
     evaluation=Evaluation()
     score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    

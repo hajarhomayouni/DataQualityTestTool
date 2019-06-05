@@ -49,8 +49,6 @@ class DataCollection:
         categorical_columns=[]
         for column in df_data.columns.values:
             if self.is_number(df_data.iloc[1][column])==False:
-                print column
-                print "%%%%%%%%%%%%%%%%%%%%%%"
                 #df_data[column]=df_data[column].apply(hash)
                 categorical_columns.append(column)
             #if all(float(x).is_integer() for x in df_data[column]):
