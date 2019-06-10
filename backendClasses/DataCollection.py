@@ -35,11 +35,11 @@ class DataCollection:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])"""
-        """min_max=MinMaxScaler()
+        min_max=MinMaxScaler()
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]):
-                dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])"""
+                dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
         return dataFrame
 
 
