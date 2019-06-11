@@ -99,7 +99,7 @@ def validate():
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     #suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db).drop([dataFrame.columns.values[0],'status','invalidityScore'],axis=1)
-    suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db).drop(['status','invalidityScore'],axis=1)
+    #suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db).drop(['status','invalidityScore'],axis=1)
     if request.method == "POST":
         knownFaults=""
         if request.files:
@@ -118,22 +118,23 @@ def validate():
         if numberOfClusters:
             for i in range(int(numberOfClusters)):
                 if str(i) in request.form.getlist('Group'):
-                    db.execute("Update dataRecords_"+datasetId+" set invalidityScore=1.0, status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     
                 else:
                     #maxInvalidityScoreOfNormalData.append(pd.read_sql(sql="select invalidityScore from dataRecords_"+datasetId+" where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'",con=db).iloc[0,0])
-                    db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set  status='invalid' where status='actualFaults_"+str(i)+"'")
             #if len(maxInvalidityScoreOfNormalData)>0: faultyThresholdByExpert=max(maxInvalidityScoreOfNormalData)
 
     #prepare hyper-parameters
     numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     #actualFaultsDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+ " where status like 'actual%'",con=db).drop([dataFrame.columns.values[0],'status','invalidityScore'],axis=1)
-    actualFaultsDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+ " where status like 'actual%'",con=db).drop(['status','invalidityScore'],axis=1)
-    print "****actual faults********"
-    print actualFaultsDataFrame
-    validDataFrame=pd.concat([suspiciousDataFrame,actualFaultsDataFrame]).drop_duplicates(keep=False)
-    validDataFrame.to_sql("validData_"+datasetId,con=db, if_exists='append')
+    #actualFaultsDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+ " where status like 'actual%'",con=db).drop(['status','invalidityScore'],axis=1)
+    #print "****actual faults********"
+    #print actualFaultsDataFrame
+    #validDataFrame=pd.concat([suspiciousDataFrame,actualFaultsDataFrame]).drop_duplicates(keep=False)
+    #validDataFrame.to_sql("validData_"+datasetId,con=db, if_exists='append')
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
     """if numberOfActualFaults<=numberOfSuspicious:
@@ -141,22 +142,22 @@ def validate():
         db.execute("update hyperParameters set epochs="+str(epochs))"""
     #prepare training data
     #make the invalidity scores of all non-faulty records equal to zero
-    db.execute("Update dataRecords_"+datasetId+" set invalidityScore=0.0 where  status='clean'")
+    #db.execute("Update dataRecords_"+datasetId+" set invalidityScore=0.0 where  status='clean'")
 
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
     #As I added invalidity score as a new column, I should not remove faults from training set
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status='clean' or status like 'suspicious_%'", con=db)
-
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual_%' and status not like 'invalid'", con=db)
+    
+    validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
+    print "validDataFrame*************" 
+    print validDataFrame
+    dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
     #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
 
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
     #Increase the number of valid samples that are incorrectly detected as invalid
-    validDataFrame=pd.read_sql(sql="select * from validData_"+datasetId, con=db).drop_duplicates(keep='first')
-    print "validDataFrame*************" 
-    print validDataFrame
 
-    dataFrameTrainPreprocessed=dataFrameTrainPreprocessed.append(validDataFrame,ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
     print "dataFrameTrainPreprocessed***********"
     print dataFrameTrainPreprocessed
     
@@ -168,8 +169,8 @@ def validate():
     if trainedModelFilePath!="":
         bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
     else:
-        hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
-        #hiddenOpt=[50,50]
+        #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
+        hiddenOpt=[50,50]
         l2Opt = [1e-4,1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
         bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
