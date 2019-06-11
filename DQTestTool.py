@@ -92,14 +92,10 @@ def validate():
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
 
     dataCollection=DataCollection()
-    #remove column id for analysis
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
 
-    #faultyThresholdByExpert=0.0
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
-    #suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db).drop([dataFrame.columns.values[0],'status','invalidityScore'],axis=1)
-    #suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db).drop(['status','invalidityScore'],axis=1)
     if request.method == "POST":
         knownFaults=""
         if request.files:
@@ -121,45 +117,27 @@ def validate():
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     
                 else:
-                    #maxInvalidityScoreOfNormalData.append(pd.read_sql(sql="select invalidityScore from dataRecords_"+datasetId+" where status='suspicious_"+str(i)+"' or status='actualFaults_"+str(i)+"'",con=db).iloc[0,0])
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
                     db.execute("Update dataRecords_"+datasetId+" set  status='invalid' where status='actualFaults_"+str(i)+"'")
-            #if len(maxInvalidityScoreOfNormalData)>0: faultyThresholdByExpert=max(maxInvalidityScoreOfNormalData)
 
     #prepare hyper-parameters
     numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
-    #actualFaultsDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+ " where status like 'actual%'",con=db).drop([dataFrame.columns.values[0],'status','invalidityScore'],axis=1)
-    #actualFaultsDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+ " where status like 'actual%'",con=db).drop(['status','invalidityScore'],axis=1)
-    #print "****actual faults********"
-    #print actualFaultsDataFrame
-    #validDataFrame=pd.concat([suspiciousDataFrame,actualFaultsDataFrame]).drop_duplicates(keep=False)
-    #validDataFrame.to_sql("validData_"+datasetId,con=db, if_exists='append')
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
     """if numberOfActualFaults<=numberOfSuspicious:
         epochs=int(epochs-NR*0.3*epochs)
         db.execute("update hyperParameters set epochs="+str(epochs))"""
     #prepare training data
-    #make the invalidity scores of all non-faulty records equal to zero
-    #db.execute("Update dataRecords_"+datasetId+" set invalidityScore=0.0 where  status='clean'")
-
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    #As I added invalidity score as a new column, I should not remove faults from training set
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual_%' and status not like 'invalid'", con=db)
     
     validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     print "validDataFrame*************" 
     print validDataFrame
     dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
-    #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
-
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
-    #Increase the number of valid samples that are incorrectly detected as invalid
-
-    print "dataFrameTrainPreprocessed***********"
-    print dataFrameTrainPreprocessed
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@Tune and Train model@@@@@@@@@@@@@@@@@
@@ -189,7 +167,6 @@ def validate():
     for index, row in invalidityScoresWithId.iterrows():
         db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row['invalidityScore'])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))
     
-    #concat record id to the invalidity score per feature
     invalidityScoresPerFeature= pd.concat([dataFrame[dataFrame.columns[0]], invalidityScoresPerFeature], axis=1, sort=False)
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -198,7 +175,6 @@ def validate():
     #Threshold increases based on a rate
     faultyThreshold=np.percentile(invalidityScores,95)    
     #faultyThreshold=faultyThreshold+NR*0.1*faultyThreshold
-    #faultyThreshold=max(faultyThreshold, faultyThresholdByExpert)
     normalThreshold=np.percentile(invalidityScores,50)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -209,15 +185,9 @@ def validate():
     #Detect faulty records based on invalidity scores
     faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
     columnNames=faultyRecordFrame.columns
-    #columnNames.remove('status')
-    print "*****columnNames"
-    print columnNames
-    print "********faultyInvalidityScoreFrame"
-    print faultyInvalidityScoreFrame
     faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-2]
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,normalThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
-    #normalRecordFrame=testing.detectNormalRecordsBasedOnFeatures(dataFrame, invalidityScoresPerFeature, invalidityScores,np.percentile(invalidityScores,0.5))#sum(invalidityScores)/len(invalidityScores))
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@store different scores@@@@
@@ -299,12 +269,10 @@ def validate():
             tree=H2oRandomForest()
         
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
-        #number of generated trees = 3
         numberOfTrees=3
         decisionTreeImageUrls=[]
         for i in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
-        #
         cluster_dt_url.append(decisionTreeImageUrls)
         treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
