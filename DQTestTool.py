@@ -50,6 +50,10 @@ def importDataFrame():
             dataRecordsFile = request.files['dataRecords']
             dataRecordsFilePath="datasets/"+dataRecordsFile.filename
             dataRecordsFile.save(dataRecordsFilePath)
+        if request.files.get('knownFaults', None):
+            knownFaultsFile=request.files['knownFaults']
+            knownFaultsFilePath="datasets/PD/"+knownFaultsFile.filename
+            knownFaultsFile.save(knownFaultsFilePath)
         else:
             error="No data file is selected"
         if error is None:
@@ -66,6 +70,10 @@ def importDataFrame():
             hyperParameters = {'epochs':[50], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
             hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
+
+            #store knowFaults in database
+            knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
+            knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
 
             return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
@@ -87,7 +95,7 @@ def validate():
     truePositiveRate=0.0
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
-    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
+    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%' or status like 'invalid%'", con=db)
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
 
@@ -96,14 +104,10 @@ def validate():
 
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
+    suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%' or status like 'actual%'", con=db)
     if request.method == "POST":
-        knownFaults=""
-        if request.files:
-            f = request.files['file']
-            knownFaults='datasets/PD/'+f.filename
-            f.save(knownFaults)
         if request.form.get('evaluation'):
-            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId, knownFaults=knownFaults))
+            return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId))
         
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #@@@@@@@@@@@@@@Incorporate domain knowledge@@@@@@@@
@@ -115,10 +119,11 @@ def validate():
             for i in range(int(numberOfClusters)):
                 if str(i) in request.form.getlist('Group'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                    #db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='invalid_"+str(i)+"'")
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
-                    db.execute("Update dataRecords_"+datasetId+" set  status='invalid' where status='actualFaults_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set  status='invalid_"+str(i)+"' where status='actualFaults_"+str(i)+"'")
 
     #prepare hyper-parameters
     numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
@@ -131,7 +136,7 @@ def validate():
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual_%' and status not like 'invalid'", con=db)
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual_%' and status not like 'invalid%'", con=db)
     
     validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     print "validDataFrame*************" 
@@ -202,7 +207,28 @@ def validate():
     if not AFdataFrameOld.empty:
         falseNegativeRate=float(diffDetection)/float(oldDetected)
     trueNegativeRate=1-falseNegativeRate
-    db.execute('INSERT INTO scores (time, dataset_id, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId, truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
+    #A
+    print "suspiciousDataFrame"
+    print suspiciousDataFrame
+    A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
+    #AF
+    AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
+    print "AFdataFrame"
+    print AFdataFrame
+    #E
+    knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
+    E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
+    
+    PD=SD=ND=UD=0.0
+    if len(A)>0:
+        evaluation=Evaluation()
+        PD=evaluation.previouslyDetectedFaultyRecords(A,E)
+        SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
+        ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
+        UD=evaluation.unDetectedFaultyRecords(A, E)
+    print "PD*******"
+    print PD
+    db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Cluster suspicious records@@@@@@@@@@
@@ -226,9 +252,10 @@ def validate():
     i=0
     for dataFrame in dataFrames:
         dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where status='clean' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where (status='clean' or status='valid') and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
 
-        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+ "' where status='actualtFaults_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+"' where status='actualtFaults_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+"' where status='invalid_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
     numberOfClusters=i
@@ -286,36 +313,18 @@ def validate():
 def evaluation():
     db=get_db()
     datasetId=request.args.get('datasetId')
-    knownFaults=request.args.get('knownFaults')
-
+    evaluation=Evaluation()
+    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
     #A
     suspiciousRecords=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
     A=set(suspiciousRecords[suspiciousRecords.columns.values[0]].astype(str).tolist())
-    
     #AF
     actualFaults=pd.read_sql(sql="select distinct * from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db )  
     AF=set(actualFaults[actualFaults.columns.values[0]].astype(str).unique().tolist())
-    
     #E
-    E=set()
-    if knownFaults:
-        dataCollection=DataCollection()
-        E=dataCollection.csvToSet(str(knownFaults))
-
-    evaluation=Evaluation()
-    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
+    knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
+    E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     
-    #statistics    
-    TPR=evaluation.truePositiveRate(A,AF)
     TPGR=evaluation.truePositiveGrowthRate(score)
-    NR=evaluation.numberOfRuns(score)
-    PD=evaluation.previouslyDetectedFaultyRecords(A,E)
-    SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
-    ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
-    UD=evaluation.unDetectedFaultyRecords(A, E)
-
-    db.execute("Update scores set previously_detected="+str(PD)+", suspicious_detected="+str(SD)+ ", undetected="+str(UD)+", newly_detected="+str(ND)+" where dataset_id like '"+datasetId+"'")
-    score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
-
-    return render_template('evaluation.html',  score=score.to_html(), TF=float(len(AF)), A=float(len(A)), TPR=TPR, NR=NR, TPGR=TPGR, E=float(len(E)), PD=PD, ND=ND, UD=UD)
+    return render_template('evaluation.html',  score=score.to_html(),TPGR=TPGR,A=len(A), AF=len(AF), E=len(E))
 
