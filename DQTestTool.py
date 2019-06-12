@@ -94,18 +94,22 @@ def validate():
     truePositive=0.0
     truePositiveRate=0.0
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
-    #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
-    AFdataFrameOld=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%' or status like 'invalid%'", con=db)
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
 
     dataCollection=DataCollection()
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
+    print "database before updating"
+    print pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db)
 
-    numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
-    numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
-    suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%' or status like 'actual%'", con=db)
+    #numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
+    #numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
+    suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
+    AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
     if request.method == "POST":
+        #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
+        AFdataFrameOld=pd.read_sql(sql="select distinct "+dataFrame.columns.values[0]+" from actualFaults_"+datasetId, con=db)
+
         if request.form.get('evaluation'):
             return redirect(url_for('DQTestTool.evaluation', datasetId=datasetId))
         
@@ -119,15 +123,16 @@ def validate():
             for i in range(int(numberOfClusters)):
                 if str(i) in request.form.getlist('Group'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
-                    #db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='invalid_"+str(i)+"'")
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
-                    db.execute("Update dataRecords_"+datasetId+" set  status='invalid_"+str(i)+"' where status='actualFaults_"+str(i)+"'")
 
+    print "database right after update2"
+    print pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db)
+        
     #prepare hyper-parameters
-    numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
-    numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
+    #numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
+    #numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
     """if numberOfActualFaults<=numberOfSuspicious:
@@ -136,7 +141,13 @@ def validate():
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual_%' and status not like 'invalid%'", con=db)
+    print "AFDataFrame"
+    print AFdataFrame
+
+    print "AFdataFrameOld"
+    print AFdataFrameOld
+    AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
     
     validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     print "validDataFrame*************" 
@@ -177,8 +188,12 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@Identify Threshold@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
+    numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
+    faultyThreshold=np.percentile(invalidityScores,95)        
+    if numberOfKnownFaults>0:
+        faultyThreshold=np.percentile(invalidityScores, float(numberOfKnownFaults)/float(len(dataFrame)))
     #Threshold increases based on a rate
-    faultyThreshold=np.percentile(invalidityScores,95)    
     #faultyThreshold=faultyThreshold+NR*0.1*faultyThreshold
     normalThreshold=np.percentile(invalidityScores,50)
     
@@ -213,6 +228,8 @@ def validate():
     A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
     #AF
     AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
+    print "AFdataFrameOld"
+    print AFdataFrameOld
     print "AFdataFrame"
     print AFdataFrame
     #E
@@ -249,15 +266,18 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #Update status of suspicious groups in database@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     i=0
     for dataFrame in dataFrames:
         dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where (status='clean' or status='valid') and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
 
-        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+"' where status='actualtFaults_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
-        db.execute("Update dataRecords_"+datasetId+" set status='actualFaults_"+str(i)+"' where status='invalid_%' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
+
+    print "database right after update1"
+    print pd.read_sql("select * from dataRecords_"+datasetId, con=db)
+
     numberOfClusters=i
     faulty_records_html=[]
     cluster_scores_fig_url=[]
