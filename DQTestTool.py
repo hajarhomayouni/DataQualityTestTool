@@ -164,7 +164,7 @@ def validate():
         bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
     else:
         #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
-        hiddenOpt=[50,50]
+        hiddenOpt=[50,50,50]
         l2Opt = [1e-4,1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
         bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
@@ -188,11 +188,11 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@Identify Threshold@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
+    numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, float(numberOfKnownFaults)/float(len(dataFrame)))
+        faultyThreshold=np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     #Threshold increases based on a rate
     #faultyThreshold=faultyThreshold+NR*0.1*faultyThreshold
     normalThreshold=np.percentile(invalidityScores,50)
@@ -217,17 +217,30 @@ def validate():
         truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
     falsePositiveRate=1.0-truePositiveRate
     falseNegativeRate=0.0
-    diffDetection=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()).difference(set(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))) 
-    oldDetected=len(set(AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist())) 
+    AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
+    AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
+    print "Lists***********************"
+    print AFdataFrameOldList
+    print AFdataFrameList
+    diffDetection=len(set(AFdataFrameOldList).difference(set(AFdataFrameList))) 
+    oldDetected=len(set(AFdataFrameOldList)) 
     if not AFdataFrameOld.empty:
+        print "****diffDetection"
+        print diffDetection
+        print "*****oldDetection"
+        print oldDetected
         falseNegativeRate=float(diffDetection)/float(oldDetected)
     trueNegativeRate=1-falseNegativeRate
     #A
     print "suspiciousDataFrame"
     print suspiciousDataFrame
     A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
+    print "****A*******"
+    print A
     #AF
     AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
+    print "*********AF*****************"
+    print AF
     print "AFdataFrameOld"
     print AFdataFrameOld
     print "AFdataFrame"
