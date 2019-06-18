@@ -164,8 +164,10 @@ def validate():
         bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
     else:
         #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
-        hiddenOpt=[50,50,50]
-        l2Opt = [1e-4,1e-2]
+        hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5]]
+        #hiddenOpt=[3000,2750,2500,2250,1750,1500,1250,1000,750,500,250,500,750,1000,1250,1500,1750,2250,2500,2750,3000]
+        #hiddenOpt=[50]
+        l2Opt = [1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
         bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
         
@@ -266,7 +268,7 @@ def validate():
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
     dataFrames=[]
     if clusteringMethod=="som":
-        som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
+        som = SOM(6,6, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0]],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
         faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)
