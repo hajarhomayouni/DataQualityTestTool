@@ -24,7 +24,7 @@ class Autoencoder(PatternDiscovery):
         print "$$$$$$$$$$$$$$$$$$$$$$$$"
         print gridperf1 
         print "$$$$$$$$$$$$$$$$$$$$$$$$"
-        bestModel = gridperf1.models[1]
+        bestModel = gridperf1.models[0]
         return bestModel
 
     @staticmethod

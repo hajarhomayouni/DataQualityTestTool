@@ -2,6 +2,7 @@ import os
 from random import *
 import functools
 from backendClasses.DataCollection import DataCollection
+from backendClasses.PatternDiscovery import PatternDiscovery
 from backendClasses.SklearnDecisionTree import SklearnDecisionTree
 from backendClasses.SklearnRandomForest import SklearnRandomForest
 from backendClasses.H2oGradientBoosting import H2oGradientBoosting
@@ -12,6 +13,7 @@ from backendClasses.Testing import Testing
 import h2o
 import numpy as np
 from backendClasses.Autoencoder import Autoencoder
+from backendClasses.Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
 from DataQualityTestTool.db import get_db
@@ -28,6 +30,7 @@ import random
 from flask import Response
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import statistics
+import pyod
 
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
@@ -39,8 +42,9 @@ def importDataFrame():
     """
     if request.method == 'POST':
         trainedModelFilePath=""
-        interpretationMethod= request.form.getlist("interpretation")
-        clusteringMethod= request.form.getlist("clustering")
+        constraintDiscoveryMethod=request.form.get("constraintDiscovery")
+        interpretationMethod= request.form.get("interpretation")
+        clusteringMethod= request.form.get("clustering")
         error = None
         if request.files.get('trainedModel', None):
             trainedModelFile=request.files['trainedModel']
@@ -75,7 +79,7 @@ def importDataFrame():
             knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
             knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
 
-            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
+            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
 
     return render_template('import.html')
@@ -89,6 +93,7 @@ def validate():
     datasetId=request.args.get('datasetId')
     trainedModelFilePath=request.args.get('trainedModelFilePath')
     db=get_db()
+    constraintDiscoveryMethod=request.args.get('constraintDiscoveryMethod')
     interpretationMethod=request.args.get('interpretationMethod')
     clusteringMethod=request.args.get('clusteringMethod')
     truePositive=0.0
@@ -158,29 +163,38 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@Tune and Train model@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    autoencoder = Autoencoder()
-    bestConstraintDiscoveryModel=H2OAutoEncoderEstimator()
-    if trainedModelFilePath!="":
-        bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
-    else:
+    patternDiscovery = PatternDiscovery()
+    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
+    hyperParameters=[]
+    MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL()}#, "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM() }
+
+    if constraintDiscoveryMethod=="H2O_Autoencoder":
+        patternDiscovery=Autoencoder()
         #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
-        hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5]]
-        #hiddenOpt=[3000,2750,2500,2250,1750,1500,1250,1000,750,500,250,500,750,1000,1250,1500,1750,2250,2500,2750,3000]
-        #hiddenOpt=[50]
+        hiddenOpt=[[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
+        #hiddenOpt=[[3000,2750,2500,2250,1750,1750,2250,2500,2750,3000]]
+        #hiddenOpt=[[20]]
         l2Opt = [1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        bestConstraintDiscoveryModel=autoencoder.tuneAndTrain(hyperParameters,H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False),dataFrameTrainPreprocessed)
-        
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False)
+    else:
+        patternDiscovery=Pyod()
+    
+    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
+    if trainedModelFilePath!="":
+        bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
+
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Assign invalidity scores@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #Assign invalidity scores per feature
-    invalidityScoresPerFeature=autoencoder.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
+    invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #Assign invalidity scores per record
     #based on average of attribute's invalidity scores
-    #invalidityScores=autoencoder.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
+    invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
-    invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+    #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+
     invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
     for index, row in invalidityScoresWithId.iterrows():
         db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row['invalidityScore'])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))
@@ -192,7 +206,7 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,95)        
+    faultyThreshold=np.percentile(invalidityScores,90)        
     if numberOfKnownFaults>0:
         faultyThreshold=np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     #Threshold increases based on a rate
@@ -204,10 +218,6 @@ def validate():
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     testing=Testing()  
     faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where invalidityScore >="+str(faultyThreshold), con=db)    
-    #Detect faulty records based on invalidity scores
-    faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
-    columnNames=faultyRecordFrame.columns
-    faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-2]
     #Detect normal records
     normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,normalThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
 
@@ -221,32 +231,15 @@ def validate():
     falseNegativeRate=0.0
     AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
     AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
-    print "Lists***********************"
-    print AFdataFrameOldList
-    print AFdataFrameList
     diffDetection=len(set(AFdataFrameOldList).difference(set(AFdataFrameList))) 
     oldDetected=len(set(AFdataFrameOldList)) 
     if not AFdataFrameOld.empty:
-        print "****diffDetection"
-        print diffDetection
-        print "*****oldDetection"
-        print oldDetected
         falseNegativeRate=float(diffDetection)/float(oldDetected)
     trueNegativeRate=1-falseNegativeRate
     #A
-    print "suspiciousDataFrame"
-    print suspiciousDataFrame
     A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
-    print "****A*******"
-    print A
     #AF
     AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
-    print "*********AF*****************"
-    print AF
-    print "AFdataFrameOld"
-    print AFdataFrameOld
-    print "AFdataFrame"
-    print AFdataFrame
     #E
     knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
     E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
@@ -258,8 +251,6 @@ def validate():
         SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-    print "PD*******"
-    print PD
     db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -268,6 +259,10 @@ def validate():
     #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
     dataFrames=[]
     if clusteringMethod=="som":
+        #Detect faulty records based on invalidity scores
+        faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
+        faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-2]
+
         som = SOM(6,6, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0]],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
@@ -307,15 +302,15 @@ def validate():
     for i in range(int(numberOfClusters)):
         faulty_records=dataFrames[i]
         faulty_records_html.append(faulty_records.drop(['status'],axis=1).to_html())
-
-        cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
-        X=dataFrame.columns.values[1:-2]
-        Y=cluster_scores.mean().tolist()[1:]
-        cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-
-        #indicate the attributes with high invalidity score values
-        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,70)]
-        faulty_attributes=X[faulty_attributes_indexes]
+        faulty_attributes=dataFrame.columns.values[1:-2]
+        if constraintDiscoveryMethod=="H2O_Autoencoder":
+            cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
+            X=dataFrame.columns.values[1:-2]
+            Y=cluster_scores.mean().tolist()[1:]
+            cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            #indicate the attributes with high invalidity score values
+            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,70)]
+            faulty_attributes=X[faulty_attributes_indexes]
         
         #Add decision trees
         normalRecordFrame['label']='valid'
@@ -339,9 +334,10 @@ def validate():
         treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))
-       
-    bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
-    bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
+    bestModelFileName=""
+    if False:
+        bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
+        bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
 @bp.route('/evaluation', methods=["GET","POST"])

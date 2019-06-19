@@ -11,24 +11,37 @@
 	 
 	 <label for="knownFaults">Known Faults:</label>
 	 <input type = "file" name = "knownFaults" /><br/>
-	 <input type = "submit" value="import"/>
 
      	 </select></br>
        	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
-     	 <label for="constraintDiscoveryMethod">Constraint Discovery Method:</label></br>
-     	 <label>Autoencoder</label><input type="checkbox" name="autoencoder" value="autoencoder" checked/> </br>
-     	 <label>Previously Trained Model</label><input type="file" name="trainedModel"/> </br>
+     	 <label for="constraintDiscoveryMethod">Constraint Discovery Model:</label></br>
+     	 	<select class="form-control" id="constraintDiscovery" name="constraintDiscovery">
+			<option value="H2O_Autoencoder">H2O_Autoencoder</option>
+			<option value="SO_GAAL">Single-Objective Generative Adversarial Active Learning</option>
+			<!--<option value="MO_GAAL">Multiple-Objective Generative Adversarial Active Learning</option>
+			<option value="PCA">PCA</option>
+			<option value="MCD">Minimum Covariance Determinant</option>
+			<option value="OCSVM">One-class SVM</option>-->
+			<option value="KNN">KNN</option>
+		</select>
+		</br>
+		<label>Previously Trained Model</label><input type="file" name="trainedModel"/> </br>
        	 </p>
        	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
-     	 <label for="clusteringMethod">Fault Clustering Method:</label></br>
-     	 <label>Self Organizing Map</label><input type="checkbox" name="clustering" value="som" checked/> </br>
-     	 <label>K-prototypes</label><input type="checkbox" name="clustering" value="kprototypes"/> </br>
+     	 <label for="clusteringMethod">Fault Clustering Model:</label></br>
+	 	<select class="form-control" id="clustering" name="clustering">
+			<option value="kprototypes">K-prototypes</option>		
+			<option value="som">Self-Organizing Map</option>
+		</select>
        	 </p>
 	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
-     	 <label for="interpretationMethod">Fault Interpretation Method:</label></br>
-     	 <label>Random Forest</label><input type="checkbox" name="interpretation" value="H2o Random Forest" checked/> </br>
-     	 <label>Gradient Boosting</label><input type="checkbox" name="interpretation" value="H2o Gradient Boosting"/> </br>   
-	 
+     	 <label for="interpretationMethod">Fault Interpretation Model:</label></br>
+ 		<select class="form-control" id="interpretation" name="interpretation">	 
+			<option value="H2o Random Forest">Random Forest</option>
+			<option value="H2o Gradient Boosting"> Gradient Boosting</option>
+		</select>
+	</p>
+	 <input type = "submit" value="import"/>	
  </form>
 
 
