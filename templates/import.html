@@ -17,12 +17,14 @@
      	 <label for="constraintDiscoveryMethod">Constraint Discovery Model:</label></br>
      	 	<select class="form-control" id="constraintDiscovery" name="constraintDiscovery">
 			<option value="H2O_Autoencoder">H2O_Autoencoder</option>
+			<option value="Pyod_Autoencoder">Pyod_Autoencoder</option>
 			<option value="SO_GAAL">Single-Objective Generative Adversarial Active Learning</option>
-			<!--<option value="MO_GAAL">Multiple-Objective Generative Adversarial Active Learning</option>
+			<option value="MO_GAAL">Multiple-Objective Generative Adversarial Active Learning</option>
 			<option value="PCA">PCA</option>
 			<option value="MCD">Minimum Covariance Determinant</option>
-			<option value="OCSVM">One-class SVM</option>-->
+			<option value="OCSVM">One-class SVM</option>
 			<option value="KNN">KNN</option>
+			<option value="LOF">LOF</option>
 		</select>
 		</br>
 		<label>Previously Trained Model</label><input type="file" name="trainedModel"/> </br>
@@ -30,8 +32,8 @@
        	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
      	 <label for="clusteringMethod">Fault Clustering Model:</label></br>
 	 	<select class="form-control" id="clustering" name="clustering">
-			<option value="kprototypes">K-prototypes</option>		
 			<option value="som">Self-Organizing Map</option>
+			<option value="kprototypes">K-prototypes</option>		
 		</select>
        	 </p>
 	 <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">

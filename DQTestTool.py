@@ -42,6 +42,7 @@ def importDataFrame():
     """
     if request.method == 'POST':
         trainedModelFilePath=""
+        knownFaultsFilePath=""
         constraintDiscoveryMethod=request.form.get("constraintDiscovery")
         interpretationMethod= request.form.get("interpretation")
         clusteringMethod= request.form.get("clustering")
@@ -50,14 +51,14 @@ def importDataFrame():
             trainedModelFile=request.files['trainedModel']
             trainedModelFilePath='static/model/'+trainedModelFile.filename
             trainedModelFile.save(trainedModelFilePath)
-        if request.files.get('dataRecords', None):
-            dataRecordsFile = request.files['dataRecords']
-            dataRecordsFilePath="datasets/"+dataRecordsFile.filename
-            dataRecordsFile.save(dataRecordsFilePath)
         if request.files.get('knownFaults', None):
             knownFaultsFile=request.files['knownFaults']
             knownFaultsFilePath="datasets/PD/"+knownFaultsFile.filename
             knownFaultsFile.save(knownFaultsFilePath)
+        if request.files.get('dataRecords', None):
+            dataRecordsFile = request.files['dataRecords']
+            dataRecordsFilePath="datasets/"+dataRecordsFile.filename
+            dataRecordsFile.save(dataRecordsFilePath)
         else:
             error="No data file is selected"
         if error is None:
@@ -76,7 +77,9 @@ def importDataFrame():
             hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
 
             #store knowFaults in database
-            knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
+            knownFaultsFrame=pd.DataFrame()
+            if len(knownFaultsFilePath)>0:
+                knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
             knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
 
             return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
@@ -104,8 +107,6 @@ def validate():
 
     dataCollection=DataCollection()
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
-    print "database before updating"
-    print pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db)
 
     #numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     #numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
@@ -132,8 +133,6 @@ def validate():
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
 
-    print "database right after update2"
-    print pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db)
         
     #prepare hyper-parameters
     #numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
@@ -146,27 +145,23 @@ def validate():
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
-    print "AFDataFrame"
-    print AFdataFrame
 
-    print "AFdataFrameOld"
-    print AFdataFrameOld
     AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
     
     validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
-    print "validDataFrame*************" 
-    print validDataFrame
     dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
-    
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@Tune and Train model@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     patternDiscovery = PatternDiscovery()
     bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
     hyperParameters=[]
-    MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL()}#, "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM() }
+    n=len(dataFrameTrainPreprocessed.columns.values)
+    hidden_neurons=[n/2]
+    
+    MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, epochs=epochs), "LOF":pyod.models.lof.LOF()}
 
     if constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()
@@ -193,7 +188,8 @@ def validate():
     #based on average of attribute's invalidity scores
     invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
-    #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+    if constraintDiscoveryMethod=="H2O_Autoencoder":
+        invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
 
     invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
     for index, row in invalidityScoresWithId.iterrows():
@@ -208,9 +204,24 @@ def validate():
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,90)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
-    #Threshold increases based on a rate
-    #faultyThreshold=faultyThreshold+NR*0.1*faultyThreshold
+        faultyThreshold=np.percentile(invalidityScores, 85-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+    
+    aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
+    a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
+    bDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
+    b=(bDataFrame[bDataFrame.columns.values[0]].values[0])
+    cDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'valid' or status like 'clean'",con=db)
+    c=(cDataFrame[cDataFrame.columns.values[0]].values[0])
+    dDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'valid' or status like 'clean'",con=db)
+    d=(dDataFrame[dDataFrame.columns.values[0]].values[0])
+    #it is not ( either the first run or scores of valids are greater than scores of invalids)
+    if b!=0 and  b>d:   
+        #if valid/invalids are well separated and the number of detected faults are not too small
+        if a>=d and d< np.percentile(invalidityScores,95):
+            faultyThreshold=d
+        elif d>a and d<b:
+            faultyThreshold=max(a,faultyThreshold)
+    
     normalThreshold=np.percentile(invalidityScores,50)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -285,8 +296,6 @@ def validate():
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
 
-    print "database right after update1"
-    print pd.read_sql("select * from dataRecords_"+datasetId, con=db)
 
     numberOfClusters=i
     faulty_records_html=[]

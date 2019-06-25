@@ -24,6 +24,7 @@ class Testing:
         normalFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
         print "@@@@@@@invalidityScores@@@@@@@@@@@@@@"
         print invalidityScores
+        print len(invalidityScores)
         print "%%%%%%threshold%%%%%%%%"
         print threshold
         normal_indexes, = np.where(invalidityScores <= threshold)
