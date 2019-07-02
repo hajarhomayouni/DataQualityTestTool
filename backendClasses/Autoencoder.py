@@ -21,9 +21,6 @@ class Autoencoder(PatternDiscovery):
         modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
-        print "$$$$$$$$$$$$$$$$$$$$$$$$"
-        print gridperf1 
-        print "$$$$$$$$$$$$$$$$$$$$$$$$"
         bestModel = gridperf1.models[0]
         return bestModel
 

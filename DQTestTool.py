@@ -72,7 +72,7 @@ def importDataFrame():
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             
             #initialize hyperparametrs
-            hyperParameters = {'epochs':[50], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
+            hyperParameters = {'epochs':[10], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
             hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
 
@@ -108,8 +108,8 @@ def validate():
     dataCollection=DataCollection()
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
 
-    #numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
-    #numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
+    numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
+    numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
     AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
     if request.method == "POST":
@@ -135,13 +135,13 @@ def validate():
 
         
     #prepare hyper-parameters
-    #numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
-    #numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
+    numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
+    numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
-    """if numberOfActualFaults<=numberOfSuspicious:
-        epochs=int(epochs-NR*0.3*epochs)
-        db.execute("update hyperParameters set epochs="+str(epochs))"""
+    if numberOfActualFaults<=numberOfSuspicious:
+        epochs=int(epochs+NR*0.3*epochs)
+        db.execute("update hyperParameters set epochs="+str(epochs))
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
@@ -159,19 +159,19 @@ def validate():
     bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
     hyperParameters=[]
     n=len(dataFrameTrainPreprocessed.columns.values)
-    hidden_neurons=[n/2]
+    hidden_neurons=[n-1, n-2, n-2, n-1]
     
     MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, epochs=epochs), "LOF":pyod.models.lof.LOF()}
 
     if constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()
         #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
-        hiddenOpt=[[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
+        hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
         #hiddenOpt=[[3000,2750,2500,2250,1750,1750,2250,2500,2750,3000]]
-        #hiddenOpt=[[20]]
-        l2Opt = [1e-4]
+        #hiddenOpt=[[50,50]]
+        l2Opt = [1e-2,1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh",  ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False)
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=True)
     else:
         patternDiscovery=Pyod()
     
@@ -273,8 +273,7 @@ def validate():
         #Detect faulty records based on invalidity scores
         faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
         faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-2]
-
-        som = SOM(6,6, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
+        som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0]],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
         faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)

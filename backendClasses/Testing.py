@@ -22,11 +22,6 @@ class Testing:
     @staticmethod
     def detectNormalRecords(testDataFrame, invalidityScores, threshold):
         normalFrame=pd.DataFrame(columns=list(testDataFrame.columns.values))
-        print "@@@@@@@invalidityScores@@@@@@@@@@@@@@"
-        print invalidityScores
-        print len(invalidityScores)
-        print "%%%%%%threshold%%%%%%%%"
-        print threshold
         normal_indexes, = np.where(invalidityScores <= threshold)
         for normal in range(len(normal_indexes)):
             normalFrame.loc[normal]=testDataFrame.iloc[normal_indexes[normal]]
