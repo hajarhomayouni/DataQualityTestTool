@@ -9,7 +9,7 @@ class Autoencoder(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    def tuneAndTrain(hyperParameters, model, trainDataFrame, y=None):
         h2o.init()
         #trainData=trainDataFrame       
         trainDataHex=h2o.H2OFrame(trainDataFrame)

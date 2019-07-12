@@ -31,6 +31,8 @@ from flask import Response
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import statistics
 import pyod
+import keras
+import tensorflow as tf
 
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
@@ -72,7 +74,7 @@ def importDataFrame():
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             
             #initialize hyperparametrs
-            hyperParameters = {'epochs':[10], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
+            hyperParameters = {'epochs':[19], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
             hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
 
@@ -113,6 +115,7 @@ def validate():
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
     AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
     if request.method == "POST":
+        constraintDiscoveryMethod="H2O_Autoencoder"
         #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
         AFdataFrameOld=pd.read_sql(sql="select distinct "+dataFrame.columns.values[0]+" from actualFaults_"+datasetId, con=db)
 
@@ -139,29 +142,44 @@ def validate():
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
-    if numberOfActualFaults<=numberOfSuspicious:
-        epochs=int(epochs+NR*0.3*epochs)
-        db.execute("update hyperParameters set epochs="+str(epochs))
+    """if numberOfActualFaults<=numberOfSuspicious:
+        epochs=int(epochs+NR*0.1*epochs)
+        print "epochs************"
+        print epochs
+        db.execute("update hyperParameters set epochs="+str(epochs))"""
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
 
     AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
-    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
+    #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
+    dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     
-    validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
-    dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
+    #increase weights of valid records
+    #validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
+    #dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@Tune and Train model@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #initialize y for pyod fit function
+    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+    y_=pd.DataFrame()
+    for l in y:
+        list_y=[l]*len(dataFrameTrainPreprocessed.columns.values)
+        y_.append(list_y)
+    print "@@@@@@y_@@@@@@@@@@"
+    print y_
+    print "y*******************"
+    print y
     patternDiscovery = PatternDiscovery()
     bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
     hyperParameters=[]
     n=len(dataFrameTrainPreprocessed.columns.values)
-    hidden_neurons=[n-1, n-2, n-2, n-1]
+    hidden_neurons=[n-2, n-2]
+    hidden_activation=keras.activations.tanh
     
-    MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, epochs=epochs), "LOF":pyod.models.lof.LOF()}
+    MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, hidden_activation=hidden_activation, epochs=epochs), "LOF":pyod.models.lof.LOF()}
 
     if constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()
@@ -175,7 +193,7 @@ def validate():
     else:
         patternDiscovery=Pyod()
     
-    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
+    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed,y)
     if trainedModelFilePath!="":
         bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
 

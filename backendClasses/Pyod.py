@@ -14,8 +14,8 @@ import pandas as pd
 class Pyod(PatternDiscovery):
 
 
-    @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    
+    def tuneAndTrain(self, hyperParameters, model, trainDataFrame, y=None):
         #detector_list = [LOF(), LOF()]
         #model=LSCP(detector_list)
         #model=SO_GAAL()
@@ -23,7 +23,7 @@ class Pyod(PatternDiscovery):
             n=len(trainDataFrame.columns.values)
             hidden_neurons=[n-1,n-2,n-2,n-1]
             model=AutoEncoder(hidden_neurons)"""
-        model.fit(trainDataFrame)
+        model.fit(trainDataFrame,y)
         return model
 
     @staticmethod
