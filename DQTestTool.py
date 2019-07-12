@@ -72,7 +72,7 @@ def importDataFrame():
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             
             #initialize hyperparametrs
-            hyperParameters = {'epochs':[10], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
+            hyperParameters = {'epochs':[50], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
             hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
 
@@ -139,9 +139,9 @@ def validate():
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
-    if numberOfActualFaults<=numberOfSuspicious:
+    """if numberOfActualFaults<=numberOfSuspicious:
         epochs=int(epochs+NR*0.3*epochs)
-        db.execute("update hyperParameters set epochs="+str(epochs))
+        db.execute("update hyperParameters set epochs="+str(epochs))"""
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
