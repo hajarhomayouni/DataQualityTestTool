@@ -31,6 +31,7 @@ from flask import Response
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import statistics
 import pyod
+from keras.models import load_model
 
 bp = Blueprint('DQTestTool', __name__, url_prefix='/DQTestTool')
 
@@ -72,9 +73,9 @@ def importDataFrame():
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             
             #initialize hyperparametrs
-            hyperParameters = {'epochs':[10], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2]}   
+            hyperParameters = {'epochs':[5], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2], 'trainedModelFilePath':trainedModelFilePath}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
-            hyperParametersDataFrame.to_sql('hyperParameters', con=db, if_exists='replace')
+            hyperParametersDataFrame.to_sql('hyperParameters_'+datasetId, con=db, if_exists='replace')
 
             #store knowFaults in database
             knownFaultsFrame=pd.DataFrame()
@@ -82,7 +83,7 @@ def importDataFrame():
                 knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
             knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
 
-            return redirect(url_for('DQTestTool.validate',trainedModelFilePath=trainedModelFilePath, datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
+            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
         flash(error)
 
     return render_template('import.html')
@@ -94,7 +95,6 @@ def validate():
     #@@@@@@@@@@@@@@@@@Initializations@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     datasetId=request.args.get('datasetId')
-    trainedModelFilePath=request.args.get('trainedModelFilePath')
     db=get_db()
     constraintDiscoveryMethod=request.args.get('constraintDiscoveryMethod')
     interpretationMethod=request.args.get('interpretationMethod')
@@ -104,9 +104,13 @@ def validate():
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
+    trainedModelFilePathDataFrame=pd.read_sql(sql="select trainedModelFilePath from hyperParameters_"+datasetId, con=db)
+    trainedModelFilePath=trainedModelFilePathDataFrame[trainedModelFilePathDataFrame.columns.values[0]].values[0]
 
     dataCollection=DataCollection()
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
+    #uncomment if you want label as another attribute for training
+    #dataFramePreprocessed['y']=0
 
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
@@ -122,7 +126,6 @@ def validate():
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #@@@@@@@@@@@@@@Incorporate domain knowledge@@@@@@@@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        trainedModelFilePath=""     
         numberOfClusters=request.form["numberOfClusters"]
         maxInvalidityScoreOfNormalData=[]
         if numberOfClusters:
@@ -137,35 +140,40 @@ def validate():
     #prepare hyper-parameters
     numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
-    epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters", con=db)
+    epochsDataFrame=pd.read_sql(sql="select epochs from hyperParameters_"+datasetId, con=db)
     epochs=epochsDataFrame[epochsDataFrame.columns.values[0]].values[0]
-    if numberOfActualFaults<=numberOfSuspicious:
+    """if numberOfActualFaults<=numberOfSuspicious:
         epochs=int(epochs+NR*0.3*epochs)
-        db.execute("update hyperParameters set epochs="+str(epochs))
+        db.execute("update hyperParameters set epochs="+str(epochs))"""
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
     AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
 
     AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
+    #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     
     validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True).append(validDataFrame, ignore_index=True)
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@Tune and Train model@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #uncomment if you want label as a new attribute for training. At the moment y does not have any effect
+    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+    #dataFrameTrainPreprocessed['y']=y
+
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@Load pre-trained model@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     patternDiscovery = PatternDiscovery()
     bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
     hyperParameters=[]
     n=len(dataFrameTrainPreprocessed.columns.values)
     hidden_neurons=[n-1, n-2, n-2, n-1]
-    
     MLmodels={"H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, epochs=epochs), "LOF":pyod.models.lof.LOF()}
-
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@setup new model@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     if constraintDiscoveryMethod=="H2O_Autoencoder":
-        patternDiscovery=Autoencoder()
-        #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
+        patternDiscovery=Autoencoder()            #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
         hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
         #hiddenOpt=[[3000,2750,2500,2250,1750,1750,2250,2500,2750,3000]]
         #hiddenOpt=[[50,50]]
@@ -174,10 +182,30 @@ def validate():
         MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=epochs,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=True)
     else:
         patternDiscovery=Pyod()
+
+    """if trainedModelFilePath!="":
+        if "H2O_Autoencoder" in constraintDiscoveryMethod:
+            MLmodels["H2O_Autoencoder"] = h2o.load_model(str(trainedModelFilePath))
+        elif "Pyod_Autoencoder" in constraintDiscoveryMethod:
+            MLmodels["Pyod_Autoencoder"]=load_model(str(trainedModelFilePath)+".h5")"""
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed,str(trainedModelFilePath),y)
     
-    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
-    if trainedModelFilePath!="":
-        bestConstraintDiscoveryModel = h2o.load_model(trainedModelFilePath)
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@save the trained model for next run use@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    bestModelFileName=""
+    if "H2O_Autoencoder" in constraintDiscoveryMethod:
+        bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
+        bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
+        trainedModelFilePath='/static/model/'+bestModelFileName
+    else:
+        bestConstraintDiscoveryModel.model_.save("static/model/pyod_"+str(datasetId)+".h5")
+        db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='static/model/pyod_"+str(datasetId)+"'")
+
+
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Assign invalidity scores@@@
@@ -342,10 +370,6 @@ def validate():
         treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))
-    bestModelFileName=""
-    if False:
-        bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
-        bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
 @bp.route('/evaluation', methods=["GET","POST"])

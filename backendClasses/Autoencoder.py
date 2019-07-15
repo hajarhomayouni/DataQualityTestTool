@@ -9,7 +9,7 @@ class Autoencoder(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    def tuneAndTrain(hyperParameters, model, trainDataFrame, trainedModelFilePath, y=None):
         h2o.init()
         #trainData=trainDataFrame       
         trainDataHex=h2o.H2OFrame(trainDataFrame)
@@ -18,7 +18,11 @@ class Autoencoder(PatternDiscovery):
         categoricalColumns=dc.findCategorical(trainDataFrame)
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
         #
-        modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
+        modelGrid=""
+        if trainedModelFilePath!="":
+            modelGrid=h2o.load_model(str(trainedModelFilePath))
+        else:
+            modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
         modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
         bestModel = gridperf1.models[0]

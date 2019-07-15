@@ -10,12 +10,14 @@ from pyod.models.pca import PCA
 from pyod.models.mcd import MCD
 from pyod.models.ocsvm import OCSVM
 import pandas as pd
+from keras.models import load_model
+from keras import backend as K
 
 class Pyod(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    def tuneAndTrain(hyperParameters, model, trainDataFrame,trainedModelFilePath,y=None):
         #detector_list = [LOF(), LOF()]
         #model=LSCP(detector_list)
         #model=SO_GAAL()
@@ -23,7 +25,12 @@ class Pyod(PatternDiscovery):
             n=len(trainDataFrame.columns.values)
             hidden_neurons=[n-1,n-2,n-2,n-1]
             model=AutoEncoder(hidden_neurons)"""
-        model.fit(trainDataFrame)
+        K.clear_session()
+        model.fit(trainDataFrame, trainedModelFilePath=trainedModelFilePath,y=y)
+        """print("best model_@@@@@@@@@@@@@@")
+        for layer in model.model_.layers:
+                weights = layer.get_weights()
+                print(weights)"""
         return model
 
     @staticmethod
