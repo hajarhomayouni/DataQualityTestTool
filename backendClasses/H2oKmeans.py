@@ -16,9 +16,9 @@ class H2oKmeans(Testing):
         #trainData=trainDataFrame       
         trainDataHex=h2o.H2OFrame(trainDataFrame)
         #to consider categorical columns uncomment all the comments
-        """dc=DataCollection()
+        dc=DataCollection()
         categoricalColumns=dc.findCategorical(trainDataFrame)
-        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
+        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()
         #
         #k = range(1,len(trainDataFrame))
         k = len(trainDataFrame)-1
@@ -37,9 +37,9 @@ class H2oKmeans(Testing):
     def clusterFaultyRecords(model,testDataFramePreprocessed, testDataFrame):
         testDataHex=h2o.H2OFrame(testDataFramePreprocessed)
         #to consider categorical columns uncomment all the comments
-        """dc=DataCollection()
+        dc=DataCollection()
         categoricalColumns=dc.findCategorical(testDataFramePreprocessed)
-        testDataHex[categoricalColumns] = testDataHex[categoricalColumns].asfactor()"""
+        testDataHex[categoricalColumns] = testDataHex[categoricalColumns].asfactor()
         #
         labels_test=h2o.as_list(model.predict(testDataHex))["predict"].tolist()
         groups_of_faultyRecords=[]

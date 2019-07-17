@@ -9,7 +9,7 @@ class Autoencoder(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame, trainedModelFilePath, y=None):
+    def tuneAndTrain(hyperParameters, model, trainDataFrame):
         h2o.init()
         #trainData=trainDataFrame       
         trainDataHex=h2o.H2OFrame(trainDataFrame)
@@ -18,15 +18,14 @@ class Autoencoder(PatternDiscovery):
         categoricalColumns=dc.findCategorical(trainDataFrame)
         trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
         #
-        modelGrid=""
-        if trainedModelFilePath!="":
-            modelGrid=h2o.load_model(str(trainedModelFilePath))
-        else:
-            modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
-        modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
-        gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
-        bestModel = gridperf1.models[0]
-        return bestModel
+        #modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
+        #modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
+        print "@@@@@@Training Data Hex@@@@@@@@"
+        print trainDataHex
+        model.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
+        #gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
+        #bestModel = gridperf1.models[0]
+        return model
 
     @staticmethod
     def assignInvalidityScore(model, testDataFrame):

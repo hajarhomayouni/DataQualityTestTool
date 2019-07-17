@@ -17,7 +17,7 @@ class Pyod(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame,trainedModelFilePath,y=None):
+    def tuneAndTrain(hyperParameters, model, trainDataFrame,trainedModelFilePath,y):
         #detector_list = [LOF(), LOF()]
         #model=LSCP(detector_list)
         #model=SO_GAAL()
@@ -26,7 +26,7 @@ class Pyod(PatternDiscovery):
             hidden_neurons=[n-1,n-2,n-2,n-1]
             model=AutoEncoder(hidden_neurons)"""
         K.clear_session()
-        model.fit(trainDataFrame, trainedModelFilePath=trainedModelFilePath,y=y)
+        model.fit(trainDataFrame, y=y)#trainedModelFilePath=trainedModelFilePath)
         """print("best model_@@@@@@@@@@@@@@")
         for layer in model.model_.layers:
                 weights = layer.get_weights()
