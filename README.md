@@ -20,10 +20,9 @@ export PATH=$JAVA_HOME/bin:$PATH<br/>
 **Install H2O**<br/>
 pip install h2o<br/>
 
-**Install Pyod**<br/>
-git clone https://github.com/hajarhomayouni/pyod.git<br/>
-cd pyod<br/>
-pip install . <br/>
+**Install Graphviz**<br/>
+sudo apt install graphviz<br/>
+
 
 **Update H2o jar path**</br>
 Download h2o.jar and update the jar path in backendClasses/H2oRandomForest and backendClasses/H2oGradientBoosting
