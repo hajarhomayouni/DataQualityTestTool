@@ -3,7 +3,7 @@ import abc
 class PatternDiscovery:
 
     @abc.abstractmethod
-    def tuneAndTrain(self, hyperParameters, model, trainDataFrame, trainedModelFilePath="", y=None):
+    def tuneAndTrain(self, hyperParameters, model, trainDataFrame):
         pass
 
     @abc.abstractmethod

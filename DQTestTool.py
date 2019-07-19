@@ -67,13 +67,13 @@ def importDataFrame():
             dataFrame=dataCollection.importData(dataRecordsFilePath)
             db=get_db()
             #all the data records are clean by default
-            dataFrame['invalidityScore']=0.0
             dataFrame['status']='clean'
+            dataFrame['invalidityScore']=0.0
             datasetId=dataRecordsFile.filename.replace('.csv','_').replace("-","_").replace(" ","_" ) + str(randint(1,10000))
             dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
             
             #initialize hyperparametrs
-            hyperParameters = {'rate':[0.9], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2], 'trainedModelFilePath':trainedModelFilePath}   
+            hyperParameters = {'rate':[0.1], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2], 'trainedModelFilePath':trainedModelFilePath}   
             hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
             hyperParametersDataFrame.to_sql('hyperParameters_'+datasetId, con=db, if_exists='replace')
 
@@ -106,14 +106,10 @@ def validate():
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
     trainedModelFilePathDataFrame=pd.read_sql(sql="select trainedModelFilePath from hyperParameters_"+datasetId, con=db)
     trainedModelFilePath=trainedModelFilePathDataFrame[trainedModelFilePathDataFrame.columns.values[0]].values[0]
-    print "**************trained model path**************"
-    print trainedModelFilePath
 
     dataCollection=DataCollection()
     #dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
     dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore'], axis=1))
-    #uncomment if you want label as another attribute for training
-    #dataFramePreprocessed['y']=0
 
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
@@ -137,19 +133,17 @@ def validate():
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     
                 else:
-                    #db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
-                    db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
+                    db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
+                    #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
 
         
     #prepare hyper-parameters
-    numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
+    """numberOfActualFaultsDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'actual%'",con=db)
     numberOfActualFaults=numberOfActualFaultsDataFrame[numberOfActualFaultsDataFrame.columns.values[0]].values[0]
     rateDataFrame=pd.read_sql(sql="select rate from hyperParameters_"+datasetId, con=db)
     rate=rateDataFrame[rateDataFrame.columns.values[0]].values[0]
-    """if numberOfActualFaults<=numberOfSuspicious:
+    if numberOfActualFaults<=numberOfSuspicious:
         rate=rate*((0.1)**NR)
-        print "rate@@@@@@@@@@@@@@@"
-        print rate
         if rate<0:
             rate=0.001
         db.execute("update hyperParameters set epochs="+str(rate))"""
@@ -164,17 +158,16 @@ def validate():
     """validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     for i in range(50):
         dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True)"""
-    print "@@@@@Train data@@@@@@@@@@"
-    print dataFrameTrain
+
     #dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
     dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore'], axis=1))
     #uncomment if you want label as a new attribute for training. At the moment y does not have any effect
     y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
     #dataFrameTrainPreprocessed['y']=y
 
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@Load pre-trained model@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@Set up constraint model parameters@@@@@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     patternDiscovery = PatternDiscovery()
     bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
     hyperParameters=[]
@@ -191,20 +184,19 @@ def validate():
     #@@@@@@@@@@@@setup new model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     if constraintDiscoveryMethod=="H2O_Autoencoder":
-        patternDiscovery=Autoencoder()            #hiddenOpt = [[2],[5],[50],[100],[2,2],[5,5],[50,50],[100,100],[2,2,2],[5,5,5],[50,50,50],[100,100,100],[2,2,2,2],[5,5,5,5],[50,50,50,50],[100,100,100,100]]
+        patternDiscovery=Autoencoder()            
         #hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
-        #hiddenOpt=[[3000,2750,2500,2250,1750,1750,2250,2500,2750,3000]]
         hiddenOpt=[[50,50]]
         l2Opt = [1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,hidden=[100,100], l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=rate)
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,hidden=[100,100], l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1)
     else:
         patternDiscovery=Pyod()
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)#,trainedModelFilePath, y)
+    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@save the trained model for next run use@@@@@@@@@
@@ -219,8 +211,6 @@ def validate():
         bestConstraintDiscoveryModel.model_.save("static/model/pyod_"+str(datasetId)+".h5")
         db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='static/model/pyod_"+str(datasetId)+"'")
 
-
-
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Assign invalidity scores@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -231,7 +221,11 @@ def validate():
     invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     #based on max of attribute's invalidity scores
     if constraintDiscoveryMethod=="H2O_Autoencoder":
-        invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+        #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+        tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
+        invalidityScores=(tempDataFrame).values.ravel()
+        print invalidityScores
+        
 
     invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
     for index, row in invalidityScoresWithId.iterrows():
@@ -256,6 +250,7 @@ def validate():
     c=(cDataFrame[cDataFrame.columns.values[0]].values[0])
     dDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'valid' or status like 'clean'",con=db)
     d=(dDataFrame[dDataFrame.columns.values[0]].values[0])
+    
     #it is not ( either the first run or scores of valids are greater than scores of invalids)
     if b!=0 and  b>d:   
         #if valid/invalids are well separated and the number of detected faults are not too small
@@ -263,7 +258,9 @@ def validate():
             faultyThreshold=d
         elif d>a and d<b:
             faultyThreshold=max(a,faultyThreshold)
-    
+        elif a>=d:
+            faultyThreshold=min(a,np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
+
     normalThreshold=np.percentile(invalidityScores,50)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

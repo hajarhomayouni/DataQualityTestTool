@@ -20,8 +20,6 @@ class Autoencoder(PatternDiscovery):
         #
         #modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
         #modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
-        print "@@@@@@Training Data Hex@@@@@@@@"
-        print trainDataHex
         model.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         #gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
         #bestModel = gridperf1.models[0]
