@@ -189,7 +189,7 @@ def validate():
         hiddenOpt=[[50,50]]
         l2Opt = [1e-2]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,hidden=[100,100], l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1)
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=60,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,hidden=[50,50], l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1)
     else:
         patternDiscovery=Pyod()
 
@@ -254,9 +254,9 @@ def validate():
     #it is not ( either the first run or scores of valids are greater than scores of invalids)
     if b!=0 and  b>d:   
         #if valid/invalids are well separated and the number of detected faults are not too small
-        if a>=d and d< np.percentile(invalidityScores,95):
-            faultyThreshold=d
-        elif d>a and d<b:
+        """if a>=d and d< np.percentile(invalidityScores,95):
+            faultyThreshold=d"""
+        if d>a and d<b:
             faultyThreshold=max(a,faultyThreshold)
         elif a>=d:
             faultyThreshold=min(a,np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
