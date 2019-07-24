@@ -17,7 +17,8 @@ from backendClasses.Autoencoder import Autoencoder
 from backendClasses.Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
-from DataQualityTestTool.db import get_db
+#from DataQualityTestTool.db import get_db
+from db import get_db
 from backendClasses.Evaluation import Evaluation
 import datetime
 
@@ -109,7 +110,6 @@ def validate():
             for i in range(int(numberOfClusters)):
 
                 if str(i) in request.form.getlist('Group'):
-                    print "IIIIIIIIIIIIIIIIII"
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     
                 else:
@@ -219,4 +219,8 @@ def evaluation():
 
 
 """if __name__ == '__main__':
-    app.run(debug=True)"""
+    db=get_db()
+    dQTestToolHelper=DQTestToolHelper()
+    datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trainedModelFilePath=sys.argv[2],knownFaultsFilePath=sys.argv[3])
+    print datasetId"""
+

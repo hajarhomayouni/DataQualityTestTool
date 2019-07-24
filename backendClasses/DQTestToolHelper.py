@@ -16,7 +16,6 @@ from Autoencoder import Autoencoder
 from Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
-from DataQualityTestTool.db import get_db
 from Evaluation import Evaluation
 import datetime
 
@@ -82,7 +81,7 @@ class DQTestToolHelper:
         db.execute("update hyperParameters set epochs="+str(rate))"""
     #prepare training data
     #select actual faluts from the current run after updating the database - we need this information to measure the false negative rate
-    AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults_%'", con=db)
+    AFdataFrame=pd.read_sql(sql="select "+dataFrame.columns.values[0]+" from dataRecords_"+datasetId+" where status like 'actualFaults%'", con=db)
 
     AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
     #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
