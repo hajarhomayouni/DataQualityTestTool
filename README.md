@@ -18,7 +18,7 @@ export JAVA_HOME=path_to/jdk1.8.0_181/<br/>
 export PATH=$JAVA_HOME/bin:$PATH<br/>
 
 **Install H2O**<br/>
-pip install h2o<br/>
+pip install h2o==3.24.0.5<br/>
 
 **Install Graphviz**<br/>
 sudo apt install graphviz<br/>
