@@ -1,6 +1,6 @@
-rm datasets/*
-rm datasets/PD/*
+#rm datasets/*
+#rm datasets/PD/*
 rm static/images/*
 rm static/mojo/*
-#rm static/model/*
+rm static/model/*
 rm -r /tmp/*

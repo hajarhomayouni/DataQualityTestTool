@@ -37,7 +37,6 @@ class DQTestToolHelper:
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
     datasetId=dataRecordsFilePath.split("/")[-1].replace('.csv','_').replace("-","_").replace(" ","_" ) + str(randint(1,10000))
-    print datasetId
     dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
     
     #initialize hyperparametrs
@@ -85,8 +84,6 @@ class DQTestToolHelper:
 
     AFdataFrame.to_sql('actualFaults_'+datasetId, con=db, if_exists='append')
     #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
-    print "AFdataFrame*******************"
-    print AFdataFrame
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     
     """validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
@@ -121,9 +118,9 @@ class DQTestToolHelper:
         patternDiscovery=Autoencoder()            
         #hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
         hiddenOpt=[[50,50]]
-        l2Opt = [1e-2]
+        l2Opt = [1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=60,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,hidden=[50,50], l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1)
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[50,50])
     else:
         patternDiscovery=Pyod()
 
@@ -158,7 +155,6 @@ class DQTestToolHelper:
         #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
         tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
         invalidityScores=(tempDataFrame).values.ravel()
-        print invalidityScores
         
 
     invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
@@ -174,7 +170,7 @@ class DQTestToolHelper:
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,90)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 85-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -213,8 +209,6 @@ class DQTestToolHelper:
         truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
     falsePositiveRate=1.0-truePositiveRate
     falseNegativeRate=0.0
-    print "AFdataFrameOld***************"
-    print AFdataFrameOld
 
     AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
     AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]

@@ -26,7 +26,7 @@ db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+da
 db.execute("Drop table faultyRecordFrame_"+datasetId) 
 
 
-for i in range(3):
+for i in range(10):
     #
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
@@ -35,15 +35,19 @@ for i in range(3):
     AFdataFrameOld=pd.read_sql(sql="select distinct "+dataFrame.columns.values[0]+" from actualFaults_"+datasetId, con=db)
     #
 
-    db.execute("Update dataRecords_"+datasetId+" set status='actualFaults' where  status like 'suspicious' and "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from knownFaults_"+datasetId+")")
+    db.execute("Update dataRecords_"+datasetId+" set status='actualFaults' where status like 'suspicious' and  "+dataFrame.columns.values[0]+" in (select * from knownFaults_"+datasetId+")")
 
-    db.execute("Update dataRecords_"+datasetId+" set status='valid' where status like 'suspicious'  and "+dataFrame.columns.values[0]+" not in (select "+dataFrame.columns.values[0]+ " from knownFaults_"+datasetId+")")
+    db.execute("Update dataRecords_"+datasetId+" set status='valid' where status like 'suspicious'  and "+dataFrame.columns.values[0]+" not in (select * from knownFaults_"+datasetId+")")
+
 
     faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame)
     faultyRecordFrame.to_sql('faultyRecordFrame_'+datasetId, con=db, if_exists='replace', index=False)
     db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from faultyRecordFrame_"+datasetId+")")
     db.execute("Drop table faultyRecordFrame_"+datasetId) 
 
-
 print pd.read_sql(sql="select * from scores where dataset_id like '"+datasetId+"'", con=db)
+
+scores=pd.read_sql(sql="select * from scores", con=db)
+with open("results/scores.csv", 'w') as f:
+    scores.to_csv(f)
 

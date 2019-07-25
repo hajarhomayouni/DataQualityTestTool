@@ -218,9 +218,3 @@ def evaluation():
     return render_template('evaluation.html',  score=score.to_html(),TPGR=TPGR,A=len(A), AF=len(AF), E=len(E))
 
 
-"""if __name__ == '__main__':
-    db=get_db()
-    dQTestToolHelper=DQTestToolHelper()
-    datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trainedModelFilePath=sys.argv[2],knownFaultsFilePath=sys.argv[3])
-    print datasetId"""
-
