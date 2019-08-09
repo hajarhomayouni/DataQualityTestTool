@@ -230,3 +230,89 @@ class DQTestToolHelper:
         UD=evaluation.unDetectedFaultyRecords(A, E)
     db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName
+
+
+   def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName):
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@Cluster suspicious records@@@@@@@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #If you want to work with data directly for clustering, use faultyRecordFrame directly. Now it clusters based on invelidity score per feature
+    dataFrames=[]
+    testing=Testing()
+    dataCollection=DataCollection()
+    if clusteringMethod=="som":
+        #Detect faulty records based on invalidity scores
+        faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
+        faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-1]
+        som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
+        dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0]],axis=1), faultyRecordFrame)
+    elif clusteringMethod=="kprototypes":
+        faultyRecordFramePreprocessed=dataCollection.preprocess(faultyRecordFrame)
+        kmeans=H2oKmeans()
+        """bestClusteringModel=kmeans.tuneAndTrain(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0],'invalidityScore'],axis=1), faultyRecordFrame)"""
+        bestClusteringModel=kmeans.tuneAndTrain(faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0]],axis=1))
+        dataFrames=kmeans.clusterFaultyRecords(bestClusteringModel,faultyRecordFramePreprocessed.drop([faultyRecordFramePreprocessed.columns.values[0]],axis=1), faultyRecordFrame)
+
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #Update status of suspicious groups in database@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
+    i=0
+    for dataFrame in dataFrames:
+        dataFrame.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+
+        db.execute("Drop table suspicious_i_temp_"+datasetId)       
+        i=i+1
+
+
+    numberOfClusters=i
+    faulty_records_html=[]
+    cluster_scores_fig_url=[]
+    cluster_dt_url=[]
+    cluster_interpretation=[]
+    treeRules=[]
+    
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #@@@@@@@@@@ Add interpretations to groups@@@@
+    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    #show the suspicious groups as HTML tables
+    for i in range(int(numberOfClusters)):
+        faulty_records=dataFrames[i]
+        faulty_records_html.append(faulty_records.drop(['status'],axis=1).to_html())
+        faulty_attributes=dataFrame.columns.values[1:-2]
+        if constraintDiscoveryMethod=="H2O_Autoencoder":
+            cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
+            #X=dataFrame.columns.values[1:-2]
+            X=dataFrame.columns.values[1:-1]
+            Y=cluster_scores.mean().tolist()[1:]
+            cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            #indicate the attributes with high invalidity score values
+            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,70)]
+            faulty_attributes=X[faulty_attributes_indexes]
+        
+        #Add decision trees
+        normalRecordFrame['label']='valid'
+        faulty_records['label']='suspicious'
+        decisionTreeTrainingFrame= pd.concat([normalRecordFrame,faulty_records])
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        tree=H2oGradientBoosting()
+        if interpretationMethod=="Sklearn Decision Tree":
+            tree=SklearnDecisionTree()
+        if interpretationMethod=="Sklearn Random Forest":
+            tree=SklearnRandomForest()
+        if interpretationMethod=="H2o Random Forest":
+            tree=H2oRandomForest()
+        
+        treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
+        numberOfTrees=3
+        decisionTreeImageUrls=[]
+        for i in range(numberOfTrees):
+            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
+        cluster_dt_url.append(decisionTreeImageUrls)
+        treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
+        treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
+        cluster_interpretation.append(tree.interpret(treeCodeLines))
+
+    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules
