@@ -117,10 +117,10 @@ class DQTestToolHelper:
     if constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()            
         #hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
-        hiddenOpt=[[50,50]]
+        hiddenOpt=[[100,100]]
         l2Opt = [1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=50,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[50,50])
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=70,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[100,100])
     else:
         patternDiscovery=Pyod()
 
@@ -168,9 +168,9 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,90)        
+    faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -181,15 +181,11 @@ class DQTestToolHelper:
     dDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'valid' or status like 'clean'",con=db)
     d=(dDataFrame[dDataFrame.columns.values[0]].values[0])
     
-    #it is not ( either the first run or scores of valids are greater than scores of invalids)
     if b!=0 and  b>d:   
-        #if valid/invalids are well separated and the number of detected faults are not too small
-        """if a>=d and d< np.percentile(invalidityScores,95):
-            faultyThreshold=d"""
         if d>a and d<b:
             faultyThreshold=max(a,faultyThreshold)
         elif a>=d:
-            faultyThreshold=min(a,np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
+            faultyThreshold=min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
 
     normalThreshold=np.percentile(invalidityScores,50)
     
