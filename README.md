@@ -25,7 +25,7 @@ sudo apt install graphviz<br/>
 
 
 **Update H2o jar path**</br>
-Download h2o.jar and update the jar path in backendClasses/H2oRandomForest and backendClasses/H2oGradientBoosting
+Download h2o.jar and update the jar path in backendClasses/H2oRandomForest.py and backendClasses/H2oGradientBoosting.py
 h2o_jar_path= '<path_to_file>/h2o.jar'
 
 **Install Tensorflow**<br/>
@@ -34,8 +34,6 @@ pip install --upgrade tensorflow<br/>
 **Install Flask**<br/>
 pip install flask<br/>
 
-**Initialize Database**<br/>
-flask init-db<br/>
 
 **Create local folders in the project directory**<br/>
 mkdir static<br/>
@@ -48,4 +46,9 @@ mkdir datasets/PD<br/>
 **Setup Flask**<br/>
 export FLASK_APP=Project_directory<br/>
 export FLASK_ENV=development<br/>
+
+**Initialize Database**<br/>
+flask init-db<br/>
+
+**Run Flask**<br/>
 flask run --host=0.0.0.0<br/>
