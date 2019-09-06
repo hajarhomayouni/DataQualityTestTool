@@ -1,4 +1,4 @@
-from Interpretation import Interpretation
+from .Interpretation import Interpretation
 from sklearn import tree
 import graphviz 
 import pydot

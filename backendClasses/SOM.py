@@ -224,10 +224,6 @@ class SOM(object):
         for i in range(self._m):
             for j in range(self._n):
                 indexes_in_cluster=[k for k, x in enumerate(labels_list) if x == [i,j]]
-                print "faultyRecordFrame"
-                print faultyRecordFrame
-                print "faultyRecordFrameValue"
-                print faultyRecordFrame.values
                 if len(faultyRecordFrame.values[indexes_in_cluster])>0:
                     groups_of_faultyRecords.append(faultyRecordFrame.iloc[indexes_in_cluster])
                     group_index+=1

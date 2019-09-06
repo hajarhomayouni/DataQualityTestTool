@@ -1,22 +1,22 @@
 import os
 from random import *
 import functools
-from DataCollection import DataCollection
-from PatternDiscovery import PatternDiscovery
-from SklearnDecisionTree import SklearnDecisionTree
-from SklearnRandomForest import SklearnRandomForest
-from H2oGradientBoosting import H2oGradientBoosting
-from H2oRandomForest import H2oRandomForest
-from H2oKmeans import H2oKmeans
-from SOM import SOM
-from Testing import Testing
+from .DataCollection import DataCollection
+from .PatternDiscovery import PatternDiscovery
+from .SklearnDecisionTree import SklearnDecisionTree
+from .SklearnRandomForest import SklearnRandomForest
+from .H2oGradientBoosting import H2oGradientBoosting
+from .H2oRandomForest import H2oRandomForest
+from .H2oKmeans import H2oKmeans
+from .SOM import SOM
+from .Testing import Testing
 import h2o
 import numpy as np
-from Autoencoder import Autoencoder
-from Pyod import Pyod
+from .Autoencoder import Autoencoder
+from .Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
-from Evaluation import Evaluation
+from .Evaluation import Evaluation
 import datetime
 
 
@@ -137,7 +137,7 @@ class DQTestToolHelper:
         bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
         bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
         trainedModelFilePath='/static/model/'+bestModelFileName
-        db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='/home/hajar_homayouni_healthdatacompas/DataQualityTestTool"+trainedModelFilePath+"'")
+        db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='/home/hajar/DataQualityTestTool"+trainedModelFilePath+"'")
     else:
         bestConstraintDiscoveryModel.model_.save("static/model/pyod_"+str(datasetId)+".h5")
         db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='static/model/pyod_"+str(datasetId)+"'")
@@ -146,7 +146,7 @@ class DQTestToolHelper:
     #@@@@@@@@Assign invalidity scores@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #Assign invalidity scores per feature
-    invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
+    invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed.drop(['status'],axis=1))
     #Assign invalidity scores per record
     #based on average of attribute's invalidity scores
     invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
@@ -170,7 +170,7 @@ class DQTestToolHelper:
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -181,12 +181,20 @@ class DQTestToolHelper:
     dDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'valid' or status like 'clean'",con=db)
     d=(dDataFrame[dDataFrame.columns.values[0]].values[0])
     
-    if b!=0 and  b>d:   
-        if d>a and d<b:
-            faultyThreshold=max(a,faultyThreshold)
-        elif a>=d:
-            faultyThreshold=min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
+    print("%%%%%%%%%%%%%")
+    print("a:"+str(a))
+    print("b:"+str(b))
+    print("c:"+str(c))
+    print("d:"+str(d))
 
+    if b:
+        if b!=0 and  b>d:   
+            if d>a and d<b:
+                faultyThreshold=max(a,faultyThreshold)
+            elif a>=d:
+                faultyThreshold=min(a,np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
+
+    print (faultyThreshold)
     normalThreshold=np.percentile(invalidityScores,50)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -243,7 +251,7 @@ class DQTestToolHelper:
     if clusteringMethod=="som":
         #Detect faulty records based on invalidity scores
         faultyInvalidityScoreFrame=testing.detectFaultyRecords(invalidityScoresPerFeature,invalidityScores,faultyThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
-        faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-1]
+        faultyInvalidityScoreFrame.columns=dataFrame.columns.values[:-2]
         som = SOM(5,5, len(faultyInvalidityScoreFrame.columns.values)-1, 400)
         dataFrames=som.clusterFaultyRecords(faultyInvalidityScoreFrame.drop([faultyInvalidityScoreFrame.columns.values[0]],axis=1), faultyRecordFrame)
     elif clusteringMethod=="kprototypes":
@@ -285,7 +293,7 @@ class DQTestToolHelper:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
             #X=dataFrame.columns.values[1:-2]
-            X=dataFrame.columns.values[1:-1]
+            X=dataFrame.columns.values[1:-2]
             Y=cluster_scores.mean().tolist()[1:]
             cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
             #indicate the attributes with high invalidity score values

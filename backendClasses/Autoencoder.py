@@ -1,9 +1,9 @@
-from PatternDiscovery import PatternDiscovery
+from .PatternDiscovery import PatternDiscovery
 import h2o
 from h2o.grid.grid_search import H2OGridSearch
 from sklearn import preprocessing
 import pandas as pd
-from DataCollection import DataCollection
+from .DataCollection import DataCollection
 
 class Autoencoder(PatternDiscovery):
 

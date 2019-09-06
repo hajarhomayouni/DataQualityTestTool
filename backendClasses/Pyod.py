@@ -1,4 +1,4 @@
-from PatternDiscovery import PatternDiscovery
+from .PatternDiscovery import PatternDiscovery
 import pyod
 from pyod.models.knn import KNN
 from pyod.models.auto_encoder import AutoEncoder

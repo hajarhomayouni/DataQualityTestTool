@@ -16,7 +16,8 @@ class DataCollection:
     
     @staticmethod
     def importData(csvPath):
-        return pd.DataFrame.from_csv(csvPath)
+        return pd.read_csv(csvPath,index_col=0)
+        #return pd.DataFrame.from_csv(csvPath)
 
     def preprocess(self,dataFrame):
         #proprocess null data

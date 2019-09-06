@@ -1,10 +1,10 @@
 from h2o.estimators.kmeans import H2OKMeansEstimator
-from Testing import Testing
+from .Testing import Testing
 import h2o
 from h2o.grid.grid_search import H2OGridSearch
 from sklearn import preprocessing
 import pandas as pd
-from DataCollection import DataCollection
+from .DataCollection import DataCollection
 import numpy as np
 
 class H2oKmeans(Testing):
