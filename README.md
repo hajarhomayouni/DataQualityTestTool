@@ -59,9 +59,9 @@ mkdir datasets<br/>
 mkdir datasets/PD<br/>
 
 **Set model path to your project directory**<br/>
-Update model path in backendClass/DQTestToolHelper.py
+Update model path in backendClass/DQTestToolHelper.py <br/>
 db.execute("update hyperparameters_"+str(datasetId)+" 
-set trainedModelFilePath='<font color="red"><font color="red">PATH_TO<font/>/DataQualityTestTool"+trainedModelFilePath+"'")
+set trainedModelFilePath='<font color="red">PATH_TO<font/>/DataQualityTestTool"+trainedModelFilePath+"'")<br/>
 
 **Setup Flask**<br/>
 export FLASK_APP=Project_directory<br/>
