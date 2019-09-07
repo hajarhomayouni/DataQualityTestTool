@@ -44,7 +44,7 @@ apt install graphviz<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
-Update the jar path in backendClasses/H2oRandomForest.py and backendClasses/H2oGradientBoosting.py <br/>
+Update the jar path in backendClasses/H2oRandomForest.py and backendClasses/H2oGradientBoosting.py: <br/>
 h2o_jar_path= '<path_to_file>/h2o.jar'
 
 **Initialize Database**<br/>
@@ -59,7 +59,7 @@ mkdir datasets<br/>
 mkdir datasets/PD<br/>
 
 **Set model path to your project directory**<br/>
-Update model path in backendClass/DQTestToolHelper.py <br/>
+Update model path in backendClass/DQTestToolHelper.py: <br/>
 db.execute("update hyperparameters_"+str(datasetId)+" 
 set trainedModelFilePath='<font color="red">PATH_TO<font/>/DataQualityTestTool"+trainedModelFilePath+"'")<br/>
 
