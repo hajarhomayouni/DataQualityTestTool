@@ -16,7 +16,7 @@ Download from https://github.com/hajarhomayouni/DataQualityTestTool/archive/mast
 cd DataQualityTestTool<br/>
 
 **Install and activate python virtual environment**<br/>
-*On Linux Ubuntu* <br/>
+*On Linux* <br/>
 python3 -m venv venv<br/>
 . venv/bin/activate<br/>
 
