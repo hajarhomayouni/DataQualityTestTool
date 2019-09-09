@@ -3,28 +3,21 @@ This tool is an automated data quality test approach that:<br/>
 (1) Discovers the constraints in data records that must be satisfied and <br/>
 (2) Detects faulty records that do not satisfy the discovered constraints <br/>
 
+**Requirements**<br/>
+ python3 and java1.8
+ 
 **Steps:**<br/>
-
 **Clone or download the tool**<br/>
 git clone https://github.com/hajarhomayouni/DataQualityTestTool.git <br/>
 Or <br/>
-Downlod from https://github.com/hajarhomayouni/DataQualityTestTool/archive/master.zip <br/>
+Download from https://github.com/hajarhomayouni/DataQualityTestTool/archive/master.zip <br/>
 
 **Go to the tool directory**<br/>
 cd DataQualityTestTool<br/>
 
-**Install Python**<br/>
-apt install python3<br/>
-apt install python3-venv<br/>
-
-**Install and activate python vitual enviroment**<br/>
+**Install and activate python virtual environment**<br/>
 python3 -m venv venv<br/>
 . venv/bin/activate<br/>
-
-**Install Java 1.8**<br/>
-apt install openjdk-8-jre-headless<br/>
-export JAVA_HOME=path_to/jdk1.8.0_181/<br/>
-export PATH=$JAVA_HOME/bin:$PATH<br/>
 
 **Install python packages**<br/>
 pip install h2o<br/>
@@ -47,9 +40,6 @@ Download h2o.jar that is compatible with your h2o version <br/>
 Update the jar path in backendClasses/H2oRandomForest.py and backendClasses/H2oGradientBoosting.py: <br/>
 h2o_jar_path= '<path_to_file>/h2o.jar'
 
-**Initialize Database**<br/>
-flask init-db<br/>
-
 **Create local folders in the project directory**<br/>
 mkdir static<br/>
 mkdir static/mojo<br/>
@@ -66,6 +56,9 @@ set trainedModelFilePath='<font color="red">PATH_TO<font/>/DataQualityTestTool"+
 **Setup Flask**<br/>
 export FLASK_APP=Project_directory<br/>
 export FLASK_ENV=development<br/>
+
+**Initialize Database**<br/>
+flask init-db<br/>
 
 **Run Flask**<br/>
 To access the tool locally:<br/>
