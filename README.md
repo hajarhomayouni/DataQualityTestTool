@@ -6,7 +6,7 @@ This tool is an automated data quality test approach that:<br/>
 **Requirements**<br/>
  python3 and java1.8
  
-**Steps:**<br/>
+**Steps to install the tool on Linux Ubuntu:**<br/>
 **Clone or download the tool**<br/>
 git clone https://github.com/hajarhomayouni/DataQualityTestTool.git <br/>
 *Or* <br/>
@@ -16,8 +16,14 @@ Download from https://github.com/hajarhomayouni/DataQualityTestTool/archive/mast
 cd DataQualityTestTool<br/>
 
 **Install and activate python virtual environment**<br/>
+*On Linux Ubuntu* <br/>
 python3 -m venv venv<br/>
 . venv/bin/activate<br/>
+
+*On Mac* <br/>
+mkdir venv <br/>
+Python3 -m vena ./venv <br/>
+Source vent/bin/activate <br/>
 
 **Install python packages**<br/>
 pip install h2o<br/>
@@ -33,7 +39,11 @@ pip install --upgrade tensorflow<br/>
 pip install flask<br/>
 
 **Install Graphviz**<br/>
+*On Linux*<br/>
 apt install graphviz<br/>
+
+*On Mac*<br/>
+brew install graphviz<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
@@ -73,3 +83,6 @@ python -m flask run --host=0.0.0.0</br>
 
 **Open the tool from browser**</br>
 host:5000/DQTestTool/import
+
+
+
