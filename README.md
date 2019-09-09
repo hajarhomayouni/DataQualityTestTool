@@ -9,7 +9,7 @@ This tool is an automated data quality test approach that:<br/>
 **Steps:**<br/>
 **Clone or download the tool**<br/>
 git clone https://github.com/hajarhomayouni/DataQualityTestTool.git <br/>
-Or <br/>
+*Or* <br/>
 Download from https://github.com/hajarhomayouni/DataQualityTestTool/archive/master.zip <br/>
 
 **Go to the tool directory**<br/>
@@ -61,14 +61,14 @@ export FLASK_ENV=development<br/>
 flask init-db<br/>
 
 **Run Flask**<br/>
-To access the tool locally:<br/>
+*To access the tool locally*:<br/>
 flask run<br/>
-Or<br/>
+*Or*<br/>
 python -m flask run
 
-To access the tool remotely:<br/>
+*To access the tool remotely*:<br/>
 flask run --host=0.0.0.0<br/>
-Or<br/>
+*Or*<br/>
 python -m flask run --host=0.0.0.0</br>
 
 **Open the tool from browser**</br>
