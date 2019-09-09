@@ -39,7 +39,7 @@ pip install --upgrade tensorflow<br/>
 pip install flask<br/>
 
 **Install Graphviz**<br/>
-*On Linux*<br/>
+*On Linux Ubuntu*<br/>
 apt install graphviz<br/>
 
 *On Mac*<br/>
