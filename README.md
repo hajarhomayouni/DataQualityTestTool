@@ -84,5 +84,24 @@ python -m flask run --host=0.0.0.0</br>
 **Open the tool from browser**</br>
 host:5000/DQTestTool/import
 
+## Steps to run the tool in terminal
+
+**Run the testScript.py with appropriate arguments**<br/>
+*Run the following command inside the project directory:*<br/>
+python testScript.py dataRecordsFilePath, trainedModelFilePath, knownFaultsFilePath, constraintDiscoveryMethod <br/>
+
+*where<br/>
+dataRecordsFilePath should be set to the full path to the data in form of CSV </br>
+trainedModelFilePath should be set to "" unless you want to use a previously trained model </br>
+knownFaultsFilePath should be set to the full path to the CSV file that stores IDs of previously known faulty records. Set to "" if there is no previously known faults </br>
+constraintDiscoveryMethod should be set to "H2o_Autoencoder"*<br/>
+
+**Note:** The first column of your CSV data file should be a unique ID </br>
+
+**See the output in the scores.csv file stored in the results folder**<br/>
+results/scores.csv<br/>
+
+
+
 
 
