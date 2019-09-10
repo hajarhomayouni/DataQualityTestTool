@@ -91,10 +91,10 @@ host:5000/DQTestTool/import
 python testScript.py dataRecordsFilePath, trainedModelFilePath, knownFaultsFilePath, constraintDiscoveryMethod <br/>
 
 where<br/>
-dataRecordsFilePath should be set to the full path to the data in form of CSV </br>
-trainedModelFilePath should be set to "" unless you want to use a previously trained model </br>
-knownFaultsFilePath should be set to the full path to the CSV file that stores IDs of previously known faulty records. Set to "" if there is no previously known faults </br>
-constraintDiscoveryMethod should be set to "H2o_Autoencoder"<br/>
+*dataRecordsFilePath* should be set to the full path to the data in form of CSV </br>
+*trainedModelFilePath* should be set to "" unless you want to use a previously trained model </br>
+*knownFaultsFilePath* should be set to the full path to the CSV file that stores IDs of previously known faulty records. Set to "" if there is no previously known faults </br>
+*constraintDiscoveryMethod* should be set to "H2o_Autoencoder"<br/>
 
 **Note:** The first column of your CSV data file should be a unique ID </br>
 
