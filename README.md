@@ -3,10 +3,10 @@ This tool is an automated data quality test approach that:<br/>
 (1) Discovers the constraints in data records that must be satisfied and <br/>
 (2) Detects faulty records that do not satisfy the discovered constraints <br/>
 
-##Requirements
+## Requirements
  python3 and java1.8
  
-##Steps to install the tool
+## Steps to install the tool
 **Clone or download the tool**<br/>
 git clone https://github.com/hajarhomayouni/DataQualityTestTool.git <br/>
 *Or* <br/>
