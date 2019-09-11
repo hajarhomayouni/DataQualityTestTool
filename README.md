@@ -51,6 +51,7 @@ pip install keras<br/>
 pip install --upgrade tensorflow<br/>
 pip install flask<br/>
 pip install graphviz<br/>
+pip install sklearn<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
