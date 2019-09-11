@@ -97,7 +97,6 @@ git pull origin master <br/>
 python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFilePath  constraintDiscoveryMethod <br/>
 
 *where*<br/>
-
 *dataRecordsFilePath* should be set to path to your data in CSV format </br>
 *trainedModelFilePath* should be set to empty ("") unless you want to use a previously trained model </br>
 *knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records. <br/>
@@ -108,7 +107,7 @@ python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFileP
 *Note*: The first column of your CSV data file should be a unique ID </br>
 
 **See the output in the results/scores.csv file**<br/>
-*Given*:
+*Given*:<br/>
 *A*: Set of faulty records detected by our approach </br>
 *E*: Set of faulty records detected by existing approach <br/>
 *AF*: Set of actual faulty records detected by our approach <br/>
@@ -116,7 +115,7 @@ python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFileP
 *AF_new*: Set of faults detected in the current run <br/>
 *NR*: Number of runs <br/>
 
-The scripts measures the follwoing values for 10 runs of tool for the input CSV data and stores it in a table in scores.csv <br/>
+The script measures the follwoing values for 10 runs of tool for the input CSV data and stores the results in scores.csv <br/>
 *True Positive Rate (TPR)*: |AF|/|A|</br>
 *True Positive Growth Rate (TPGR)*: ((lastTPR/firstTPR)^(1/NR))-1</br>
 *Previously Detected faulty records (PD)*: |E^A|/|E|</br> 
