@@ -102,6 +102,12 @@ source venv/bin/activate <br/>
 *For csh, tcsh*:</br>
 source venv/bin/activate.csh <br/>
 
+**Set the database path in testScript.py**<br/>
+db=sqlite3.connect("<absolute_path_to>/dq.sqlite")<br/>
+
+*Note*: You can find the full path to your database when you initialize the database:<br/>
+flask init-db<br/>
+
 **Run the testScript.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
 python testScript.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
@@ -125,7 +131,7 @@ python testScript.py <data_records_file_path>  <trained_model_file_path>  <known
 *AF_new*: Set of faults detected in the current run <br/>
 *NR*: Number of runs <br/>
 
-The script measures the follwoing values for 10 runs of tool for the input CSV data and stores the results in scores.csv <br/>
+The script measures the follwoing values for 10 runs of tool for the input CSV data and stores (overwrites) the results in scores.csv <br/>
 *True Positive Rate (TPR)*: |AF|/|A|</br>
 *True Positive Growth Rate (TPGR)*: ((lastTPR/firstTPR)^(1/NR))-1</br>
 *Previously Detected faulty records (PD)*: |E^A|/|E|</br> 
