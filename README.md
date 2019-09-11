@@ -88,7 +88,7 @@ host:5000/DQTestTool/import
 
 ## Steps to run the tool scripts in terminal
 
-**Make sure that you are using the latest version**<br/>
+**Make sure that you are using the latest version of the tool**<br/>
 *Run the following command inside the project directory:*<br/>
 git pull origin master <br/>
 
@@ -97,10 +97,11 @@ git pull origin master <br/>
 python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFilePath  constraintDiscoveryMethod <br/>
 
 *where*<br/>
+
 *dataRecordsFilePath* should be set to path to your data in CSV format </br>
 *trainedModelFilePath* should be set to empty ("") unless you want to use a previously trained model </br>
-*knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records. Set to empty ("") if there is no previously known faults </br>
-*constraintDiscoveryMethod* should be set to the machine learning model you want to use for constraint discovery (H2O_Autoencoder)<br/>
+*knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records. <br/>
+*constraintDiscoveryMethod* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
 
 *Example*: python testScript.py "breastCancer.csv" "" "breathCancer_outliers.csv" "H2O_Autoencoder" <br/>
 
