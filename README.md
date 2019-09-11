@@ -99,7 +99,7 @@ python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFileP
 *where*<br/>
 *dataRecordsFilePath* should be set to path to your data in CSV format </br>
 *trainedModelFilePath* should be set to empty ("") unless you want to use a previously trained model </br>
-*knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records. <br/>
+*knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records <br/>
 *constraintDiscoveryMethod* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
 
 *Example*: python testScript.py "breastCancer.csv" "" "breathCancer_outliers.csv" "H2O_Autoencoder" <br/>
