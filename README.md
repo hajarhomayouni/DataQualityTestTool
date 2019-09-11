@@ -1,10 +1,11 @@
 # DataQualityTestTool
-This tool is an automated data quality test approach that:<br/> 
+ADQuaTe implements a data quality test approach that:<br/> 
 (1) Discovers the constraints in data records that must be satisfied and <br/>
 (2) Detects faulty records that do not satisfy the discovered constraints <br/>
 
 ## Requirements
- python3 and java1.8
+ python3, java1.8, and Graphviz are installed. <br/>
+ The PATH or path variable contains the paths to the appropriate bin folders. <br/>
  
 ## Steps to install the tool
 **Clone or download the tool**<br/>
@@ -16,14 +17,26 @@ Download from https://github.com/hajarhomayouni/DataQualityTestTool/archive/mast
 cd DataQualityTestTool<br/>
 
 **Install and activate python virtual environment**<br/>
-*On Linux* <br/>
-python3 -m venv venv<br/>
-. venv/bin/activate<br/>
-
-*On Mac* <br/>
 mkdir venv <br/>
-Python3 -m vena ./venv <br/>
-Source vent/bin/activate <br/>
+python3 -m venv venv <br/>
+
+*For bash*:</br>
+source venv/bin/activate <br/>
+
+*For csh, tcsh*:</br>
+source venv/bin/activate.csh <br/>
+
+**Update venv/bin/activate file**<br/>
+*Type these two lines in the activate file* <br/>
+
+*For bash*:</br>
+export FLASK_APP=<absolute_path_to>/DataQualityTestTool<br/>
+export FLASK_ENV=development<br/>
+
+*For csh, tcsh*:</br>
+setenv FLASK_APP <absolute_path_to>/DataQualityTestTool<br/>
+setenv FLASK_ENV development<br/>
+
 
 **Install python packages**<br/>
 pip install h2o<br/>
@@ -37,18 +50,12 @@ pip install pyod<br/>
 pip install keras<br/>
 pip install --upgrade tensorflow<br/>
 pip install flask<br/>
-
-**Install Graphviz**<br/>
-*On Linux Ubuntu*<br/>
-apt install graphviz<br/>
-
-*On Mac*<br/>
-brew install graphviz<br/>
+pip install graphviz<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
 Update the jar path in backendClasses/H2oRandomForest.py and backendClasses/H2oGradientBoosting.py: <br/>
-h2o_jar_path= '<path_to_file>/h2o.jar'
+h2o_jar_path= '<absolute_path_to_file>/h2o.jar'
 
 **Create local folders in the project directory**<br/>
 mkdir static<br/>
@@ -61,11 +68,7 @@ mkdir datasets/PD<br/>
 **Set model path to your project directory**<br/>
 Update model path in backendClass/DQTestToolHelper.py: <br/>
 db.execute("update hyperparameters_"+str(datasetId)+" 
-set trainedModelFilePath='<font color="red">PATH_TO<font/>/DataQualityTestTool"+trainedModelFilePath+"'")<br/>
-
-**Setup Flask**<br/>
-export FLASK_APP=Project_directory<br/>
-export FLASK_ENV=development<br/>
+set trainedModelFilePath='<path_to>/DataQualityTestTool"+trainedModelFilePath+"'")<br/>
 
 **Initialize Database**<br/>
 flask init-db<br/>
@@ -84,7 +87,7 @@ flask run --host=0.0.0.0<br/>
 python -m flask run --host=0.0.0.0</br>
 
 **Open the tool from browser**</br>
-host:5000/DQTestTool/import
+<host_name>:5000/DQTestTool/import
 
 ## Steps to run the tool scripts in terminal
 
@@ -92,15 +95,22 @@ host:5000/DQTestTool/import
 *Run the following command inside the project directory:*<br/>
 git pull origin master <br/>
 
+**Activate virtual environment**<br/>
+*For bash*:</br>
+source venv/bin/activate <br/>
+
+*For csh, tcsh*:</br>
+source venv/bin/activate.csh <br/>
+
 **Run the testScript.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
-python testScript.py dataRecordsFilePath  trainedModelFilePath  knownFaultsFilePath  constraintDiscoveryMethod <br/>
+python testScript.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
 
 *where*<br/>
-*dataRecordsFilePath* should be set to path to your data in CSV format </br>
-*trainedModelFilePath* should be set to empty ("") unless you want to use a previously trained model </br>
-*knownFaultsFilePath* should be set to path to the CSV file that stores IDs of previously known faulty records <br/>
-*constraintDiscoveryMethod* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
+*data_records_file_path* should be set to path to your data file in CSV format </br>
+*trained_model_file_path* should be set to empty ("") unless you want to use a previously trained model </br>
+*known_faults_file_path* should be set to path to the CSV file that stores IDs of previously known faulty records <br/>
+*constraint_discovery_method* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
 
 *Example*: python testScript.py "breastCancer.csv" "" "breastCancer_outliers.csv" "H2O_Autoencoder" <br/>
 
