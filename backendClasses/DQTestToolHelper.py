@@ -307,6 +307,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #Update status of suspicious groups in database@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    print ("Hiiiiii222222222222222")
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     i=0
     for dataFrame in dataFrames:
@@ -315,8 +316,8 @@ class DQTestToolHelper:
 
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
-    #print("set to suspisious**********")
-    #print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
+    print("set to suspisious**********")
+    print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
 
     numberOfClusters=i
     faulty_records_html=[]
