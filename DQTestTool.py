@@ -132,6 +132,7 @@ def validate():
         numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName)
     print ("before return**********")
     print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
+    db.commit()
     db.close()
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
      
