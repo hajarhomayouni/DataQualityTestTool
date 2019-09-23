@@ -9,7 +9,7 @@ import sqlite3
 constraintDiscoveryMethod=sys.argv[4]
 
 
-db=sqlite3.connect("/home/hajar_homayouni_healthdatacompas/instance/dq.sqlite")
+db=sqlite3.connect("/home/hajar/instance/dq.sqlite")
 dQTestToolHelper=DQTestToolHelper()
 datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trainedModelFilePath=sys.argv[2],knownFaultsFilePath=sys.argv[3])
 #
@@ -45,7 +45,7 @@ for i in range(10):
     db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from faultyRecordFrame_"+datasetId+")")
     db.execute("Drop table faultyRecordFrame_"+datasetId) 
 
-print pd.read_sql(sql="select * from scores where dataset_id like '"+datasetId+"'", con=db)
+print (pd.read_sql(sql="select * from scores where dataset_id like '"+datasetId+"'", con=db))
 
 scores=pd.read_sql(sql="select * from scores", con=db)
 with open("results/scores.csv", 'w') as f:

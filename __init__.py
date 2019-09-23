@@ -12,7 +12,7 @@ def create_app(test_config=None):
         # store the database in the instance folder
         DATABASE=os.path.join(app.instance_path, 'dq.sqlite'),
     )
-    print ("%%%%%%%%%%%%%%%")
+    print ("%%%%%%%DATABASE PATH%%%%%%%%")
     print (app.config['DATABASE'])
     if test_config is None:
         # load the instance config, if it exists, when not testing
