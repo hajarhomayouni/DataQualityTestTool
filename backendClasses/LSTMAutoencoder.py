@@ -7,7 +7,10 @@ from keras.layers import RepeatVector
 from keras.layers import TimeDistributed
 from numpy import genfromtxt
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import normalize
 from .PatternDiscovery import PatternDiscovery
+from operator import add
+
 '''
 A UDF to convert input data into 3-D
 array as required for LSTM network.
@@ -29,7 +32,12 @@ class LSTMAutoencoder(PatternDiscovery):
         t = []
         for j in range(1,lookback+1):
             # Gather past records upto the lookback period
-            t.append(X[[(i+j+1)], :])
+            print ("shape********")
+            print(X.shape)
+            if len(X.shape)>1:
+                t.append(X[[(i+j+1)], :])
+            else:
+                t.append(X[i+j+1])
         output_X.append(t)
         output_y.append(y[i+lookback+1])
     return output_X, output_y
@@ -59,12 +67,16 @@ class LSTMAutoencoder(PatternDiscovery):
     return model
 
 
- def assignInvalidityScore(self,model, timeseries):
+ def assignInvalidityScore(self,model, timeseries,labels):
     # demonstrate reconstruction
     #print ("*******timeseries2********")
     #print (timeseries)
     timesteps=3
     X,y=self.temporalize(timeseries, timesteps)
+    l1,l2=self.temporalize(labels,timesteps)
+    print ("l1 and l2***********")
+    print (l1)
+    print (l2)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
@@ -78,23 +90,33 @@ class LSTMAutoencoder(PatternDiscovery):
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
     mse_attributes=[]
+    maxOfLabels=[]
     #print (X.shape[0])
     for i in range((X.shape[0])):
         #print("i:")
         #print(i)
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
         byRow=np.square(X[i]-yhat[i]).mean(axis=1)        
+        byRow=[i/sum(byRow) for i in byRow]
         mse_timeseries.append(np.square(X[i]-yhat[i]).mean(axis=None))
+        maxOfLabels.append(np.amax(l1[i]))
         mse_records.append(byRow)
         byRowArr=np.array([byRow])
         mse_attributes.append(np.square(X[i]-yhat[i]).mean(axis=0))
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
     print ("mse_timeseries***************"    )
+    print(maxOfLabels)
+    print(mse_timeseries)
+    mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
+    mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
     print (mse_timeseries)
+
     print ("mse_records*******************")
+    #mse_records=normalize(mse_records, axis=1, norm='l1')
     print (mse_records)
     print ("mse_attributes****************")
+    mse_attributes=normalize(mse_attributes, axis=1, norm='l1')
     print (mse_attributes)
     return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
 

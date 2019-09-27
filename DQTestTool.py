@@ -127,7 +127,7 @@ def validate():
     cluster_interpretation=[]
     treeRules=[] 
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes)
+        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes)
     else:
         numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName)
     print ("before return**********")

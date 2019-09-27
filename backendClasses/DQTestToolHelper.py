@@ -33,7 +33,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath).head(10)
+    dataFrame=dataCollection.importData(dataRecordsFilePath).head(20)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -62,9 +62,14 @@ class DQTestToolHelper:
     trainedModelFilePath=trainedModelFilePathDataFrame[trainedModelFilePathDataFrame.columns.values[0]].values[0]
 
     dataCollection=DataCollection()
-    #dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'status','invalidityScore'], axis=1))
-    dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore'], axis=1))
-    y=dataFrame['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+    dataFramePreprocessed=pd.DataFrame()
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status'], axis=1))
+    else:
+        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
+
+    #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
+    y=dataFrame['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('sus*',0,regex=True)
     #dataFramePreprocessed['status']=y
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -80,13 +85,15 @@ class DQTestToolHelper:
     """validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
     for i in range(50):
         dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True)"""
-
-    #dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'status','invalidityScore'], axis=1))
-    dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore'], axis=1))
-    #uncomment if you want label as a new attribute for training. 
-    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+    dataFrameTrainPreprocessed=pd.DataFrame()
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
+    else:
+        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
+    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('sus*',0,regex=True)
     #dataFrameTrainPreprocessed['status']=y
-
+    print("dataFrameTrainPreprocessed**********************")
+    print(dataFrameTrainPreprocessed)
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@Set up constraint model parameters@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -121,7 +128,7 @@ class DQTestToolHelper:
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed.drop(['status'],axis=1).to_numpy())
+        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed.to_numpy())
     else:
         bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
     
@@ -149,7 +156,7 @@ class DQTestToolHelper:
     XWithInvalidityScores=[]
     mse_attributes=[]
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
-        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed.drop(['status'],axis=1).to_numpy())
+        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed.to_numpy(),y)
         invalidityScores=mse_timeseries
         print ("TODO:")
         """for index, row in mse_records.iterrows():
@@ -215,12 +222,26 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     faultyTimeseriesIndexes=[]
     testing=Testing()  
-    faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where invalidityScore >="+str(faultyThreshold), con=db)    
-    #Detect normal records
-    normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,normalThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
+    faultyRecordFrame=pd.DataFrame()
+    normalRecordFrame=pd.DataFrame()
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         faultyTimeseriesIndexes=np.where(invalidityScores>faultyThreshold)
-
+        faultyRecordsInTimeseries=pd.DataFrame()
+        for i in faultyTimeseriesIndexes[0]:
+            print ("XWithInvalidityScores[i]******")
+            print (XWithInvalidityScores[i])
+            print(pd.DataFrame(XWithInvalidityScores[i][:,0]))
+            faultyRecordsInTimeseries=pd.concat([faultyRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
+        print("faultyRecordsInTimeseries****************")
+        print(faultyRecordsInTimeseries)
+        if not faultyRecordsInTimeseries.empty:
+            faultyRecordsInTimeseries.to_sql("faultyRecords_temp_"+datasetId, con=db, if_exists='replace', index=False)
+            faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where "+dataFrame.columns.values[0]+ " IN (Select * FROM faultyRecords_temp_"+datasetId+" )",con=db)
+            db.execute("Drop table faultyRecords_temp_"+datasetId)
+    else:
+        faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where invalidityScore >="+str(faultyThreshold), con=db)    
+        #Detect normal records
+        normalRecordFrame=testing.detectNormalRecords(dataFrame,invalidityScores,normalThreshold)#,statistics.mean(invalidityScores))#,np.percentile(invalidityScores,0.5))
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@store different scores@@@@
@@ -258,7 +279,7 @@ class DQTestToolHelper:
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,dataFramePreprocessed
 
 
-   def faultyTimeseriesInterpretation(self,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes):
+   def faultyTimeseriesInterpretation(self,db,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -267,17 +288,20 @@ class DQTestToolHelper:
     #print(faultyTimeseriesIndexes[0])
 
     for i in faultyTimeseriesIndexes[0]:
-        #print("i:")
-        #print (i)
-        #print ("******Yhat with invalidity scores [i]")
-        #print(yhatWithInvalidityScores[i])
-        #print(dataFramePreprocessed.columns.values)
-        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values[:-1],'invalidityScore'))
+        #print XWithInvalidityScores
+        print (XWithInvalidityScores[i])
+        print (dataFramePreprocessed.columns.values)
+        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
         faulty_records_html.append(df.to_html())
-        X=dataFramePreprocessed.columns.values[:-1]
+        X=dataFramePreprocessed.columns.values
         Y=mse_attributes[i]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        #Update status of suspicious groups in database@
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Drop table suspicious_i_temp_"+datasetId)
 
     return numberOfClusters,faulty_records_html,cluster_scores_fig_url,"","",""
 
