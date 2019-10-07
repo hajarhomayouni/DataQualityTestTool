@@ -32,8 +32,6 @@ class LSTMAutoencoder(PatternDiscovery):
         t = []
         for j in range(1,lookback+1):
             # Gather past records upto the lookback period
-            print ("shape********")
-            print(X.shape)
             if len(X.shape)>1:
                 t.append(X[[(i+j+1)], :])
             else:
@@ -74,9 +72,8 @@ class LSTMAutoencoder(PatternDiscovery):
     timesteps=3
     X,y=self.temporalize(timeseries, timesteps)
     l1,l2=self.temporalize(labels,timesteps)
-    print ("l1 and l2***********")
+    print ("l1***********")
     print (l1)
-    print (l2)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
@@ -90,7 +87,7 @@ class LSTMAutoencoder(PatternDiscovery):
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
     mse_attributes=[]
-    maxOfLabels=[]
+    meanOfLabels=[]
     #print (X.shape[0])
     for i in range((X.shape[0])):
         #print("i:")
@@ -99,17 +96,17 @@ class LSTMAutoencoder(PatternDiscovery):
         byRow=np.square(X[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
         mse_timeseries.append(np.square(X[i]-yhat[i]).mean(axis=None))
-        maxOfLabels.append(np.amax(l1[i]))
+        meanOfLabels.append(np.mean(l1[i]))
         mse_records.append(byRow)
         byRowArr=np.array([byRow])
         mse_attributes.append(np.square(X[i]-yhat[i]).mean(axis=0))
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
     print ("mse_timeseries***************"    )
-    print(maxOfLabels)
+    print(meanOfLabels)
     print(mse_timeseries)
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
-    mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
+    mse_timeseries=list(map(add, mse_timeseries, meanOfLabels)) 
     print (mse_timeseries)
 
     print ("mse_records*******************")

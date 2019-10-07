@@ -69,7 +69,7 @@ class DQTestToolHelper:
         dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
 
     #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
-    y=dataFrame['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('sus*',0,regex=True)
+    #y=dataFrame['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
     #dataFramePreprocessed['status']=y
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -90,7 +90,9 @@ class DQTestToolHelper:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
-    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('sus*',0,regex=True)
+    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+    print("***********Y************")
+    print(y)
     #dataFrameTrainPreprocessed['status']=y
     print("dataFrameTrainPreprocessed**********************")
     print(dataFrameTrainPreprocessed)
@@ -163,7 +165,7 @@ class DQTestToolHelper:
             db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row[0])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))"""
     else:
         #Assign invalidity scores per feature
-        invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed.drop(['status'],axis=1))
+        invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
         #Assign invalidity scores per record
         #based on average of attribute's invalidity scores
         #print(pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db))
@@ -190,7 +192,10 @@ class DQTestToolHelper:
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        if constraintDiscoveryMethod=="H2O_Autoencoder":
+            faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        elif constraintDiscoveryMethod=="LSTMAutoencoder":
+            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrame))))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -286,7 +291,8 @@ class DQTestToolHelper:
     cluster_scores_fig_url=[]
     #print ("****faulty timeseries Indexes")
     #print(faultyTimeseriesIndexes[0])
-
+    db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
+    index=0;
     for i in faultyTimeseriesIndexes[0]:
         #print XWithInvalidityScores
         print (XWithInvalidityScores[i])
@@ -300,8 +306,9 @@ class DQTestToolHelper:
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(index)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)
+        index=index+1
 
     return numberOfClusters,faulty_records_html,cluster_scores_fig_url,"","",""
 
