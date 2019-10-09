@@ -92,11 +92,7 @@ class DQTestToolHelper:
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
     y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
-    print("***********Y************")
-    print(y)
     #dataFrameTrainPreprocessed['status']=y
-    print("dataFrameTrainPreprocessed**********************")
-    print(dataFrameTrainPreprocessed)
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@Set up constraint model parameters@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -162,26 +158,17 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed.to_numpy(),y)
         invalidityScores=mse_timeseries
-        print ("TODO:")
-        """for index, row in mse_records.iterrows():
-            db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row[0])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))"""
     else:
         #Assign invalidity scores per feature
         invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
         #Assign invalidity scores per record
         #based on average of attribute's invalidity scores
-        #print(pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db))
-        #print ("dataFramePreprocessed*************")
-        #print(dataFramePreprocessed)
         invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
         #based on max of attribute's invalidity scores
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
             tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
             invalidityScores=(tempDataFrame).values.ravel()
-            #print ("***invalidity scores********")
-            #print(invalidityScores)
-            #print(pd.read_sql(sql="select * from dataRecords_"+datasetId, con=db))
         invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
         for index, row in invalidityScoresWithId.iterrows():
             db.execute("Update dataRecords_"+datasetId+" set invalidityScore="+str(row['invalidityScore'])+" where "+dataFrame.columns.values[0]+"="+str(row[dataFrame.columns.values[0]]))
@@ -221,13 +208,13 @@ class DQTestToolHelper:
             elif a>=d:
                 faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 
-    #print (faultyThreshold)
     normalThreshold=np.percentile(invalidityScores,50)
     
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@Detect faulty records@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     faultyTimeseriesIndexes=[]
+    normalTimeseriesIndexes=[]
     testing=Testing()  
     faultyRecordFrame=pd.DataFrame()
     normalRecordFrame=pd.DataFrame()
@@ -237,14 +224,9 @@ class DQTestToolHelper:
         faultyRecordsInTimeseries=pd.DataFrame()
         normalRecordsInTimeseries=pd.DataFrame()
         for i in faultyTimeseriesIndexes[0]:
-            print ("XWithInvalidityScores[i]******")
-            print (XWithInvalidityScores[i])
-            print(pd.DataFrame(XWithInvalidityScores[i][:,0]))
             faultyRecordsInTimeseries=pd.concat([faultyRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
         for j in normalTimeseriesIndexes[0]:
             normalRecordsInTimeseries=pd.concat([normalRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
-        print("faultyRecordsInTimeseries****************")
-        print(faultyRecordsInTimeseries)
         if not faultyRecordsInTimeseries.empty:
             faultyRecordsInTimeseries.to_sql("faultyRecords_temp_"+datasetId, con=db, if_exists='replace', index=False)
             faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where "+dataFrame.columns.values[0]+ " IN (Select * FROM faultyRecords_temp_"+datasetId+" )",con=db)
@@ -285,7 +267,6 @@ class DQTestToolHelper:
         SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-        print ("*Store the scores in database******************")
     db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
@@ -295,33 +276,17 @@ class DQTestToolHelper:
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
     cluster_scores_fig_url=[]
-    #print ("****faulty timeseries Indexes")
-    #print(faultyTimeseriesIndexes[0])
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     
     timeseriesFeatures=extract_features(dataFrameTimeseries,column_id="timeseriesId",column_sort="time")
-    print("features of time series*******************")
-    print(timeseriesFeatures)
-    #impute(timeseriesFeatures)
-    #features_filtered = select_features(timeseriesFeatures, y)
-    #print("filtered features**********")
-    #print(features_filtered)
-    print("normal indexes***********")
-    print (normalTimeseriesIndexes)
-    print("faulty indexes**********")
-    print(faultyTimeseriesIndexes)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["id"])
     normalTimeseries["label"]=0
-    print(normalTimeseries)
     normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on='id')
 
 
     cluster_dt_url=[]
     index=0
     for i in faultyTimeseriesIndexes[0]:
-        #print XWithInvalidityScores
-        print (XWithInvalidityScores[i])
-        print (dataFramePreprocessed.columns.values)
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
         faulty_records_html.append(df.to_html())
         X=dataFramePreprocessed.columns.values
@@ -343,8 +308,6 @@ class DQTestToolHelper:
         faultyFrame=pd.merge(timeseriesFeatures,faultyTimeseries, on='id')
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame])
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
-        print("DT***********")
-        print(decisionTreeTrainingFrame)
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
             tree=SklearnDecisionTree()
@@ -392,7 +355,6 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #Update status of suspicious groups in database@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    print ("Hiiiiii222222222222222")
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     i=0
     for dataFrame in dataFrames:
@@ -401,8 +363,6 @@ class DQTestToolHelper:
 
         db.execute("Drop table suspicious_i_temp_"+datasetId)       
         i=i+1
-    print("set to suspisious**********")
-    print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
 
     numberOfClusters=i
     faulty_records_html=[]

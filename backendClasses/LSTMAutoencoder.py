@@ -20,9 +20,6 @@ array as required for LSTM network.
 class LSTMAutoencoder(PatternDiscovery):
 
  def temporalize(self,timeseries, timesteps,features=None):
-    print("****timeseries****")
-    print (timeseries)
-    #print (timeseries.shape)
     #n_features = timeseries.shape[1]
     X = timeseries
     y = np.zeros(len(timeseries))
@@ -46,8 +43,6 @@ class LSTMAutoencoder(PatternDiscovery):
                 #
             else:
                 t.append(X[i+j+1])
-        print ("dfTimeseries***************")
-        print(dataFrameTimeseries)
         output_X.append(t)
         output_y.append(y[i+lookback+1])
     return output_X, output_y,dataFrameTimeseries
@@ -79,31 +74,20 @@ class LSTMAutoencoder(PatternDiscovery):
 
  def assignInvalidityScore(self,model, timeseries,labels):
     # demonstrate reconstruction
-    #print ("*******timeseries2********")
-    #print (timeseries)
     timesteps=5
     X,y,dataFrameTimeseries=self.temporalize(timeseries, timesteps)
     l1,l2,emptyDf=self.temporalize(labels,timesteps)
-    print ("l1***********")
-    print (l1)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
-    print ("********input************")
-    print(X)
     yhat = model.predict(X, verbose=0)
-    print ("********output***********")
-    print(yhat)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
     mse_attributes=[]
     meanOfLabels=[]
-    #print (X.shape[0])
     for i in range((X.shape[0])):
-        #print("i:")
-        #print(i)
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
         byRow=np.square(X[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
@@ -115,8 +99,6 @@ class LSTMAutoencoder(PatternDiscovery):
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
     print ("mse_timeseries***************"    )
-    print(meanOfLabels)
-    print(mse_timeseries)
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
     mse_timeseries=list(map(add, mse_timeseries, meanOfLabels)) 
     print (mse_timeseries)

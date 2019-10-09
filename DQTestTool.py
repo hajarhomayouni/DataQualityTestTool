@@ -92,12 +92,9 @@ def validate():
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)    
-    print("*********initial dataset*********")
-    print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
     AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
     #
     if request.method == "POST":
-        print ("Hiiiiiiiiiiiiiiii")
         #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
         AFdataFrameOld=pd.read_sql(sql="select distinct "+dataFrame.columns.values[0]+" from actualFaults_"+datasetId, con=db)
 
@@ -130,8 +127,6 @@ def validate():
         numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
     else:
         numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName)
-    print ("before return**********")
-    print(pd.read_sql(sql="select * from dataRecords_"+datasetId,con=db))
     db.commit()
     db.close()
     return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
