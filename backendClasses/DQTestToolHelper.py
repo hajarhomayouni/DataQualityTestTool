@@ -27,7 +27,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import statistics
 import pyod
 from keras.models import load_model
-
+from tsfresh import select_features,extract_features
+from tsfresh.utilities.dataframe_functions import impute
 
 class DQTestToolHelper:
     
@@ -129,8 +130,9 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    dataFrameTimeseries=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed.to_numpy())
+        bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
     else:
         bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
     
@@ -231,12 +233,16 @@ class DQTestToolHelper:
     normalRecordFrame=pd.DataFrame()
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         faultyTimeseriesIndexes=np.where(invalidityScores>faultyThreshold)
+        normalTimeseriesIndexes=np.where(invalidityScores<faultyThreshold)
         faultyRecordsInTimeseries=pd.DataFrame()
+        normalRecordsInTimeseries=pd.DataFrame()
         for i in faultyTimeseriesIndexes[0]:
             print ("XWithInvalidityScores[i]******")
             print (XWithInvalidityScores[i])
             print(pd.DataFrame(XWithInvalidityScores[i][:,0]))
             faultyRecordsInTimeseries=pd.concat([faultyRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
+        for j in normalTimeseriesIndexes[0]:
+            normalRecordsInTimeseries=pd.concat([normalRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
         print("faultyRecordsInTimeseries****************")
         print(faultyRecordsInTimeseries)
         if not faultyRecordsInTimeseries.empty:
@@ -281,10 +287,10 @@ class DQTestToolHelper:
         UD=evaluation.unDetectedFaultyRecords(A, E)
         print ("*Store the scores in database******************")
     db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
-    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,dataFramePreprocessed
+    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes):
+   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -292,7 +298,26 @@ class DQTestToolHelper:
     #print ("****faulty timeseries Indexes")
     #print(faultyTimeseriesIndexes[0])
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
-    index=0;
+    
+    timeseriesFeatures=extract_features(dataFrameTimeseries,column_id="timeseriesId",column_sort="time")
+    print("features of time series*******************")
+    print(timeseriesFeatures)
+    #impute(timeseriesFeatures)
+    #features_filtered = select_features(timeseriesFeatures, y)
+    #print("filtered features**********")
+    #print(features_filtered)
+    print("normal indexes***********")
+    print (normalTimeseriesIndexes)
+    print("faulty indexes**********")
+    print(faultyTimeseriesIndexes)
+    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["id"])
+    normalTimeseries["label"]=0
+    print(normalTimeseries)
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on='id')
+
+
+    cluster_dt_url=[]
+    index=0
     for i in faultyTimeseriesIndexes[0]:
         #print XWithInvalidityScores
         print (XWithInvalidityScores[i])
@@ -309,8 +334,37 @@ class DQTestToolHelper:
         db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(index)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)
         index=index+1
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        #Add Decision Tree for each Timesereis
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        faulty_attributes=timeseriesFeatures.columns.values
+        faultyTimeseries=pd.DataFrame(data=[i],columns=["id"])
+        faultyTimeseries["label"]=1
+        faultyFrame=pd.merge(timeseriesFeatures,faultyTimeseries, on='id')
+        decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame])
+        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        print("DT***********")
+        print(decisionTreeTrainingFrame)
+        tree=H2oGradientBoosting()
+        if interpretationMethod=="Sklearn Decision Tree":
+            tree=SklearnDecisionTree()
+        if interpretationMethod=="Sklearn Random Forest":
+            tree=SklearnRandomForest()
+        if interpretationMethod=="H2o Random Forest":
+            tree=H2oRandomForest()
+        
+        treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
+        numberOfTrees=3
+        decisionTreeImageUrls=[]
+        for i in range(numberOfTrees):
+            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
+        cluster_dt_url.append(decisionTreeImageUrls)
+        """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
+        treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
+        cluster_interpretation.append(tree.interpret(treeCodeLines))"""
 
-    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,"","",""
+
+    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,"",""
 
 
    def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName):

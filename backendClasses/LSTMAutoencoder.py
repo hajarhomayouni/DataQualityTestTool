@@ -1,5 +1,6 @@
 # lstm autoencoder to recreate a timeseries
 import numpy as np
+import pandas as pd
 from keras.models import Sequential
 from keras.layers import LSTM
 from keras.layers import Dense
@@ -18,9 +19,9 @@ array as required for LSTM network.
 
 class LSTMAutoencoder(PatternDiscovery):
 
- def temporalize(self,timeseries, timesteps):
-    #print("****timeseries****")
-    #print (timeseries)
+ def temporalize(self,timeseries, timesteps,features=None):
+    print("****timeseries****")
+    print (timeseries)
     #print (timeseries.shape)
     #n_features = timeseries.shape[1]
     X = timeseries
@@ -28,25 +29,36 @@ class LSTMAutoencoder(PatternDiscovery):
     lookback = timesteps
     output_X = []
     output_y = []
+    #
+    dataFrameTimeseries=pd.DataFrame()
+    #
     for i in range(len(X)-lookback-1):
         t = []
         for j in range(1,lookback+1):
             # Gather past records upto the lookback period
             if len(X.shape)>1:
                 t.append(X[[(i+j+1)], :])
+                #
+                #convert the matrix to data frame
+                dataFrameTemp=pd.DataFrame(data=X[[(i+j+1)], :], columns=features)
+                dataFrameTemp["timeseriesId"]=i
+                dataFrameTimeseries=pd.concat([dataFrameTimeseries,dataFrameTemp])
+                #
             else:
                 t.append(X[i+j+1])
+        print ("dfTimeseries***************")
+        print(dataFrameTimeseries)
         output_X.append(t)
         output_y.append(y[i+lookback+1])
-    return output_X, output_y
+    return output_X, output_y,dataFrameTimeseries
 
 
  #timeseries = genfromtxt('shuttle.csv', skip_header=1, delimiter=',', skip_footer=14400)
 
  def tuneAndTrain(self,timeseries):
     #timesteps = timeseries.shape[0]
-    timesteps=3
-    X,y=self.temporalize(timeseries, timesteps)
+    timesteps=5
+    X,y,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(), timesteps,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
@@ -62,16 +74,16 @@ class LSTMAutoencoder(PatternDiscovery):
     model.summary()
     # fit model
     model.fit(X, X, epochs=300, batch_size=5, verbose=0)
-    return model
+    return model,dataFrameTimeseries
 
 
  def assignInvalidityScore(self,model, timeseries,labels):
     # demonstrate reconstruction
     #print ("*******timeseries2********")
     #print (timeseries)
-    timesteps=3
-    X,y=self.temporalize(timeseries, timesteps)
-    l1,l2=self.temporalize(labels,timesteps)
+    timesteps=5
+    X,y,dataFrameTimeseries=self.temporalize(timeseries, timesteps)
+    l1,l2,emptyDf=self.temporalize(labels,timesteps)
     print ("l1***********")
     print (l1)
     n_features=timeseries.shape[1]
