@@ -15,6 +15,7 @@ CREATE TABLE scores (
   true_negative_rate float,
   false_negative_rate float,
   false_positive_rate Float,
-  true_positive_rate Float
+  true_positive_rate Float,
+  true_positive_rate_timeseries Float
 );
 

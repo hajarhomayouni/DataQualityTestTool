@@ -54,7 +54,7 @@ class DQTestToolHelper:
     return datasetId
 
 
-   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame):
+   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,truePositiveRateGroup):
     truePositive=0.0
     truePositiveRate=0.0
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
@@ -267,7 +267,7 @@ class DQTestToolHelper:
         SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-    db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate) VALUES (?,?,?,?,?, ?, ?, ?, ?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate))
+    db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate, true_positive_rate_timeseries) VALUES (?,?,?,?,?, ?, ?, ?, ?,?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
@@ -277,20 +277,34 @@ class DQTestToolHelper:
     faulty_records_html=[]
     cluster_scores_fig_url=[]
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
-    
+    print("dataFrameTimeseries")
+    print(dataFrameTimeseries)
+    #timeseriesFeatures=extract_features(dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1),column_id="timeseriesId",column_sort="time")
     timeseriesFeatures=extract_features(dataFrameTimeseries,column_id="timeseriesId",column_sort="time")
-    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["id"])
+    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
     normalTimeseries["label"]=0
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on='id')
-
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=[dataFrameTimeseries.columns.values[0]])
+    print("normalFrame")
+    print(normalFrame)
+    #
+    """normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
+    normalTimeseries["label"]=0
+    normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=[dataFrameTimeseries.columns.values[0]])
+    faultyTimeseries=pd.DataFrame(data=np.transpose(faultyTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
+    faultyTimeseries["label"]=1
+    faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=[dataFrameTimeseries.columns.values[0]])
+    dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
+    print("dataFrameTimeseries")
+    print(dataFrameTimeseries)"""
+    #
 
     cluster_dt_url=[]
     index=0
     for i in faultyTimeseriesIndexes[0]:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
         faulty_records_html.append(df.to_html())
-        X=dataFramePreprocessed.columns.values
-        Y=mse_attributes[i]
+        X=dataFramePreprocessed.columns.values[2:]
+        Y=mse_attributes[i][2:]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Update status of suspicious groups in database@
@@ -303,6 +317,8 @@ class DQTestToolHelper:
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         faulty_attributes=timeseriesFeatures.columns.values
+        print("faulty_attributes********")
+        print(faulty_attributes)
         faultyTimeseries=pd.DataFrame(data=[i],columns=["id"])
         faultyTimeseries["label"]=1
         faultyFrame=pd.merge(timeseriesFeatures,faultyTimeseries, on='id')

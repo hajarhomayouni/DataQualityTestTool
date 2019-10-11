@@ -52,6 +52,8 @@ class LSTMAutoencoder(PatternDiscovery):
 
  def tuneAndTrain(self,timeseries):
     #timesteps = timeseries.shape[0]
+    print("timeseries****")
+    print(timeseries)
     timesteps=5
     X,y,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(), timesteps,timeseries.columns.values)
     n_features=timeseries.shape[1]
