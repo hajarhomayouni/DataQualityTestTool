@@ -34,7 +34,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath).head(20)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(20)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -182,9 +182,9 @@ class DQTestToolHelper:
     faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
-            faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+            faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
-            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrame))))))
+            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries))))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -206,7 +206,11 @@ class DQTestToolHelper:
             if d>a and d<b:
                 faultyThreshold=max(a,faultyThreshold)
             elif a>=d:
-                faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
+                if constraintDiscoveryMethod=="LSTMAutoencoder":
+                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries)))))))
+                if constraintDiscoveryMethod=="H2OAutoencoder":
+                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
+
 
     normalThreshold=np.percentile(invalidityScores,50)
     
@@ -281,6 +285,8 @@ class DQTestToolHelper:
     print(dataFrameTimeseries)
     #timeseriesFeatures=extract_features(dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1),column_id="timeseriesId",column_sort="time")
     timeseriesFeatures=extract_features(dataFrameTimeseries,column_id="timeseriesId",column_sort="time")
+    print("timeseries features***************")
+    print(timeseriesFeatures)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
     normalTimeseries["label"]=0
     normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=[dataFrameTimeseries.columns.values[0]])
@@ -317,12 +323,14 @@ class DQTestToolHelper:
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         faulty_attributes=timeseriesFeatures.columns.values
-        print("faulty_attributes********")
-        print(faulty_attributes)
+        #print("faulty_attributes********")
+        #print(faulty_attributes)
         faultyTimeseries=pd.DataFrame(data=[i],columns=["id"])
         faultyTimeseries["label"]=1
         faultyFrame=pd.merge(timeseriesFeatures,faultyTimeseries, on='id')
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame])
+        print("decision Tree Training Frame***************")
+        print (decisionTreeTrainingFrame)
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":

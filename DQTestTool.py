@@ -1,26 +1,27 @@
+#require a dot before name if running with flask####
+from backendClasses.DQTestToolHelper import DQTestToolHelper
+from backendClasses.DataCollection import DataCollection
+from backendClasses.PatternDiscovery import PatternDiscovery
+from backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from backendClasses.SklearnRandomForest import SklearnRandomForest
+from backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from backendClasses.H2oRandomForest import H2oRandomForest
+from backendClasses.H2oKmeans import H2oKmeans
+from backendClasses.SOM import SOM
+from backendClasses.Testing import Testing
+from backendClasses.Autoencoder import Autoencoder
+from backendClasses.Pyod import Pyod
+from db import get_db
+from backendClasses.Evaluation import Evaluation
+#####################################################
+import datetime
 import os
-from .backendClasses.DQTestToolHelper import DQTestToolHelper
 from random import *
 import functools
-from .backendClasses.DataCollection import DataCollection
-from .backendClasses.PatternDiscovery import PatternDiscovery
-from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from .backendClasses.SklearnRandomForest import SklearnRandomForest
-from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from .backendClasses.H2oRandomForest import H2oRandomForest
-from .backendClasses.H2oKmeans import H2oKmeans
-from .backendClasses.SOM import SOM
-from .backendClasses.Testing import Testing
 import h2o
 import numpy as np
-from .backendClasses.Autoencoder import Autoencoder
-from .backendClasses.Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
-#from DataQualityTestTool.db import get_db
-from .db import get_db
-from .backendClasses.Evaluation import Evaluation
-import datetime
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for

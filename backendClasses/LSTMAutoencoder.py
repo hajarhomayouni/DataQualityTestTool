@@ -54,35 +54,41 @@ class LSTMAutoencoder(PatternDiscovery):
     #timesteps = timeseries.shape[0]
     print("timeseries****")
     print(timeseries)
-    timesteps=5
+    timesteps=3
     X,y,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(), timesteps,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
+    print ("X**********")
+    print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(128, activation='relu', input_shape=(timesteps,n_features), return_sequences=True))
-    model.add(LSTM(64, activation='relu', return_sequences=False))
-    model.add(RepeatVector(timesteps))
-    model.add(LSTM(64, activation='relu', return_sequences=True))
-    model.add(LSTM(128, activation='relu', return_sequences=True))
+    model.add(LSTM(20, activation='relu', input_shape=(timesteps,n_features), return_sequences=True))
+    #model.add(LSTM(5, activation='relu', return_sequences=False))
+    #model.add(RepeatVector(timesteps))
+    #model.add(LSTM(5, activation='relu', return_sequences=True))
+    model.add(LSTM(20, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    model.fit(X, X, epochs=300, batch_size=5, verbose=0)
+    model.fit(X, X, epochs=5, batch_size=5, verbose=0)
     return model,dataFrameTimeseries
 
 
  def assignInvalidityScore(self,model, timeseries,labels):
     # demonstrate reconstruction
-    timesteps=5
+    timesteps=3
     X,y,dataFrameTimeseries=self.temporalize(timeseries, timesteps)
+    print("X*********")
+    print(X)
     l1,l2,emptyDf=self.temporalize(labels,timesteps)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], timesteps, n_features)
     yhat = model.predict(X, verbose=0)
+    print("yhat*************")
+    print(yhat)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]
