@@ -170,7 +170,7 @@ class DQTestToolHelper:
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,95)        
     if numberOfKnownFaults>0:
-        faultyThreshold=np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+        faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -192,7 +192,7 @@ class DQTestToolHelper:
             if d>a and d<b:
                 faultyThreshold=max(a,faultyThreshold)
             elif a>=d:
-                faultyThreshold=min(a,np.percentile(invalidityScores, 95-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
+                faultyThreshold=min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame))))))
 
     print (faultyThreshold)
     normalThreshold=np.percentile(invalidityScores,50)
