@@ -29,12 +29,15 @@ import pyod
 from keras.models import load_model
 from tsfresh import select_features,extract_features
 from tsfresh.utilities.dataframe_functions import impute
+from tsfresh import extract_relevant_features
+import re
+
 
 class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(20)
+    dataFrame=dataCollection.importData(dataRecordsFilePath).head(1000)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -179,7 +182,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,95)        
+    faultyThreshold=np.percentile(invalidityScores,98)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
@@ -224,7 +227,7 @@ class DQTestToolHelper:
     normalRecordFrame=pd.DataFrame()
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         faultyTimeseriesIndexes=np.where(invalidityScores>faultyThreshold)
-        normalTimeseriesIndexes=np.where(invalidityScores<faultyThreshold)
+        normalTimeseriesIndexes=np.where(invalidityScores<=faultyThreshold)
         faultyRecordsInTimeseries=pd.DataFrame()
         normalRecordsInTimeseries=pd.DataFrame()
         for i in faultyTimeseriesIndexes[0]:
@@ -280,28 +283,42 @@ class DQTestToolHelper:
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
     cluster_scores_fig_url=[]
+    print(dataFrameTimeseries)
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     print("dataFrameTimeseries")
     print(dataFrameTimeseries)
-    #timeseriesFeatures=extract_features(dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1),column_id="timeseriesId",column_sort="time")
-    timeseriesFeatures=extract_features(dataFrameTimeseries,column_id="timeseriesId",column_sort="time")
-    print("timeseries features***************")
-    print(timeseriesFeatures)
-    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
-    normalTimeseries["label"]=0
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=[dataFrameTimeseries.columns.values[0]])
-    print("normalFrame")
-    print(normalFrame)
+    dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
+    print("normal timeseries indexes")
+    print(normalTimeseriesIndexes)
     #
-    """normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
+    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
     normalTimeseries["label"]=0
-    normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=[dataFrameTimeseries.columns.values[0]])
-    faultyTimeseries=pd.DataFrame(data=np.transpose(faultyTimeseriesIndexes),columns=[dataFrameTimeseries.columns.values[0]])
+    normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=["timeseriesId"])
+    faultyTimeseries=pd.DataFrame(data=np.transpose(faultyTimeseriesIndexes),columns=["timeseriesId"])
     faultyTimeseries["label"]=1
-    faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=[dataFrameTimeseries.columns.values[0]])
+    faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=["timeseriesId"])
     dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
     print("dataFrameTimeseries")
-    print(dataFrameTimeseries)"""
+    print(dataFrameTimeseries)
+    labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']
+    print("labels*********")
+    print(labels)
+    #TODO: do not hard code time column
+    timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2, y=labels)
+    timeseriesFeatures['timeseriesId'] = timeseriesFeatures.index
+    #
+    #normalTimeseries.rename(columns={"timeseriesId":"id"})
+    #faultyTimeseries.rename(columns={"timeseriesId":"id"})
+    #
+    print("timeseries features***************")
+    print(timeseriesFeatures)
+    print("time series features columns values**********")
+    print(timeseriesFeatures.columns.values)
+    print("normal time series")
+    print(normalTimeseries)
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])
+    print("normalFrame")
+    print(normalFrame)
     #
 
     cluster_dt_url=[]
@@ -322,13 +339,11 @@ class DQTestToolHelper:
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        faulty_attributes=timeseriesFeatures.columns.values
-        #print("faulty_attributes********")
-        #print(faulty_attributes)
-        faultyTimeseries=pd.DataFrame(data=[i],columns=["id"])
-        faultyTimeseries["label"]=1
-        faultyFrame=pd.merge(timeseriesFeatures,faultyTimeseries, on='id')
-        decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame])
+        #Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
+        partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
+        partialFaultyTimeseries["label"]=1
+        faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
+        decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
         print("decision Tree Training Frame***************")
         print (decisionTreeTrainingFrame)
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
@@ -339,6 +354,15 @@ class DQTestToolHelper:
             tree=SklearnRandomForest()
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
+        print("****************") 
+        print(decisionTreeTrainingFrame.columns.values)
+        print("*******************************")
+        print(timeseriesFeatures.columns.values)
+        faulty_attributes=timeseriesFeatures.columns.values[:-1]
+        #get rid of id for generating tree
+        #faulty_attributes=[x for x in faulty_attributes if not x.startswith(dataFramePreprocessed.columns.values[0])]
+        print("faulty_attributes********")
+        print(faulty_attributes)
         
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3

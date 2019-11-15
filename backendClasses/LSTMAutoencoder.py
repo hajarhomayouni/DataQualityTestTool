@@ -19,7 +19,38 @@ array as required for LSTM network.
 
 class LSTMAutoencoder(PatternDiscovery):
 
- def temporalize(self,timeseries, timesteps,features=None):
+
+ # Make a windowing fcn
+ def temporalize(self,arr,win_size,step_size,features=None):
+  """
+  arr: any 2D array whose columns are distinct variables and 
+    rows are data records at some timestamp t
+  win_size: size of data window (given in data points)
+  step_size: size of window step (given in data point)
+  
+  Note that step_size is related to window overlap (overlap = win_size - step_size), in 
+  case you think in overlaps."""
+  #
+  dataFrameTimeseries=pd.DataFrame()
+  #
+
+  w_list = list()
+  n_records = arr.shape[0]
+  remainder = (n_records - win_size) % step_size 
+  num_windows = 1 + int((n_records - win_size - remainder) / step_size)
+  for k in range(num_windows):
+    w_list.append(arr[k*step_size:win_size-1+k*step_size+1])
+    #
+    #convert the matrix to data frame
+    dataFrameTemp=pd.DataFrame(data=arr[k*step_size:win_size-1+k*step_size+1], columns=features)
+    dataFrameTemp["timeseriesId"]=k
+    dataFrameTimeseries=pd.concat([dataFrameTimeseries,dataFrameTemp])
+    #
+  return np.array(w_list),dataFrameTimeseries
+
+
+
+ """def temporalize(self,timeseries, timesteps,features=None):
     #n_features = timeseries.shape[1]
     X = timeseries
     y = np.zeros(len(timeseries))
@@ -45,47 +76,41 @@ class LSTMAutoencoder(PatternDiscovery):
                 t.append(X[i+j+1])
         output_X.append(t)
         output_y.append(y[i+lookback+1])
-    return output_X, output_y,dataFrameTimeseries
+    return output_X, output_y,dataFrameTimeseries"""
 
 
- #timeseries = genfromtxt('shuttle.csv', skip_header=1, delimiter=',', skip_footer=14400)
 
  def tuneAndTrain(self,timeseries):
-    #timesteps = timeseries.shape[0]
-    print("timeseries****")
-    print(timeseries)
-    timesteps=3
-    X,y,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(), timesteps,timeseries.columns.values)
+    win_size=10
+    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,1,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
-    X = X.reshape(X.shape[0], timesteps, n_features)
+    X = X.reshape(X.shape[0], win_size, n_features)
     print ("X**********")
     print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(20, activation='relu', input_shape=(timesteps,n_features), return_sequences=True))
-    #model.add(LSTM(5, activation='relu', return_sequences=False))
-    #model.add(RepeatVector(timesteps))
-    #model.add(LSTM(5, activation='relu', return_sequences=True))
-    model.add(LSTM(20, activation='relu', return_sequences=True))
+    model.add(LSTM(5, activation='relu', input_shape=(win_size,n_features), return_sequences=True))
+    model.add(LSTM(5, activation='relu', return_sequences=False))
+    model.add(RepeatVector(win_size))
+    model.add(LSTM(5, activation='relu', return_sequences=True))
+    model.add(LSTM(5, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    model.fit(X, X, epochs=5, batch_size=5, verbose=0)
+    model.fit(X, X, epochs=5, batch_size=1, verbose=0)
     return model,dataFrameTimeseries
 
 
  def assignInvalidityScore(self,model, timeseries,labels):
     # demonstrate reconstruction
-    timesteps=3
-    X,y,dataFrameTimeseries=self.temporalize(timeseries, timesteps)
-    print("X*********")
-    print(X)
-    l1,l2,emptyDf=self.temporalize(labels,timesteps)
+    win_size=10
+    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,1)
+    l1,emptyDf=self.temporalize(labels,win_size,1)
     n_features=timeseries.shape[1]
     X = np.array(X)
-    X = X.reshape(X.shape[0], timesteps, n_features)
+    X = X.reshape(X.shape[0], win_size, n_features)
     yhat = model.predict(X, verbose=0)
     print("yhat*************")
     print(yhat)
