@@ -37,7 +37,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath).head(1000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(200)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -117,10 +117,10 @@ class DQTestToolHelper:
     if constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()            
         #hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
-        hiddenOpt=[[100,100]]
+        hiddenOpt=[[10]]
         l2Opt = [1e-4]
         hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=70,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[100,100])
+        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=10,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[100,100])
     elif constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
     else:
@@ -182,7 +182,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,98)        
+    faultyThreshold=np.percentile(invalidityScores,99.8)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
@@ -283,14 +283,8 @@ class DQTestToolHelper:
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
     cluster_scores_fig_url=[]
-    print(dataFrameTimeseries)
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
-    print("dataFrameTimeseries")
-    print(dataFrameTimeseries)
     dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
-    print("normal timeseries indexes")
-    print(normalTimeseriesIndexes)
-    #
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
     normalTimeseries["label"]=0
     normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=["timeseriesId"])
@@ -298,28 +292,15 @@ class DQTestToolHelper:
     faultyTimeseries["label"]=1
     faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=["timeseriesId"])
     dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
-    print("dataFrameTimeseries")
-    print(dataFrameTimeseries)
     labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']
-    print("labels*********")
-    print(labels)
     #TODO: do not hard code time column
-    timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2, y=labels)
+    #uncomment for DT
+    """timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=1, y=labels)
+    #timeseriesFeatures=extract_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2)
+    #impute(timeseriesFeatures)
+    #timeseriesFeatures = select_features(timeseriesFeatures, labels)
     timeseriesFeatures['timeseriesId'] = timeseriesFeatures.index
-    #
-    #normalTimeseries.rename(columns={"timeseriesId":"id"})
-    #faultyTimeseries.rename(columns={"timeseriesId":"id"})
-    #
-    print("timeseries features***************")
-    print(timeseriesFeatures)
-    print("time series features columns values**********")
-    print(timeseriesFeatures.columns.values)
-    print("normal time series")
-    print(normalTimeseries)
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])
-    print("normalFrame")
-    print(normalFrame)
-    #
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
 
     cluster_dt_url=[]
     index=0
@@ -327,7 +308,7 @@ class DQTestToolHelper:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
         faulty_records_html.append(df.to_html())
         X=dataFramePreprocessed.columns.values[2:]
-        Y=mse_attributes[i][2:]
+        Y=mse_attributes[i]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Update status of suspicious groups in database@
@@ -339,13 +320,12 @@ class DQTestToolHelper:
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        #Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
+        #uncomment for DT
+        """#Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
         partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
         partialFaultyTimeseries["label"]=1
         faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
-        print("decision Tree Training Frame***************")
-        print (decisionTreeTrainingFrame)
         decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
@@ -354,22 +334,15 @@ class DQTestToolHelper:
             tree=SklearnRandomForest()
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
-        print("****************") 
-        print(decisionTreeTrainingFrame.columns.values)
-        print("*******************************")
-        print(timeseriesFeatures.columns.values)
         faulty_attributes=timeseriesFeatures.columns.values[:-1]
-        #get rid of id for generating tree
-        #faulty_attributes=[x for x in faulty_attributes if not x.startswith(dataFramePreprocessed.columns.values[0])]
-        print("faulty_attributes********")
-        print(faulty_attributes)
         
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
         decisionTreeImageUrls=[]
         for i in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
-        cluster_dt_url.append(decisionTreeImageUrls)
+        cluster_dt_url.append(decisionTreeImageUrls)"""
+
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""

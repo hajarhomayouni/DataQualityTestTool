@@ -11,6 +11,9 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import normalize
 from .PatternDiscovery import PatternDiscovery
 from operator import add
+import tensorflow as tf
+from keras.backend import tensorflow_backend as K
+
 
 '''
 A UDF to convert input data into 3-D
@@ -81,39 +84,60 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def tuneAndTrain(self,timeseries):
-    win_size=10
+    #timeseries=timeseries.drop(['id','time'],axis=1)
+    #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
+    #K.set_session(sess)
+    win_size=6
     X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,1,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    print ("X**********")
-    print(X)
+    #print ("X**********")
+    #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(5, activation='relu', input_shape=(win_size,n_features), return_sequences=True))
-    model.add(LSTM(5, activation='relu', return_sequences=False))
+    model.add(LSTM(5, activation='relu', input_shape=(win_size,n_features-2), return_sequences=True))
+    model.add(LSTM(3, activation='relu', return_sequences=False))
     model.add(RepeatVector(win_size))
+    model.add(LSTM(3, activation='relu', return_sequences=True))
     model.add(LSTM(5, activation='relu', return_sequences=True))
-    model.add(LSTM(5, activation='relu', return_sequences=True))
-    model.add(TimeDistributed(Dense(n_features)))
+    model.add(TimeDistributed(Dense(n_features-2)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    model.fit(X, X, epochs=5, batch_size=1, verbose=0)
+    #print("**************")
+    test=np.delete(X,0,0)
+    test=np.delete(X,0,0)
+    #print(np.delete(X,[0,1],axis=2))
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5, batch_size=10, verbose=0)
+    #
+    print("Model Weights*******************")
+    for layer in model.layers:
+        g=layer.get_config()
+        h=layer.get_weights()
+        print("*****************")
+        print(len(h))
+        print(h)
+        print("*************")
+        #
     return model,dataFrameTimeseries
 
 
  def assignInvalidityScore(self,model, timeseries,labels):
-    # demonstrate reconstruction
-    win_size=10
+    #timeseries=timeseries.drop(['id','time'],axis=1)
+    #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
+    #K.set_session(sess)
+    win_size=6
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,1)
     l1,emptyDf=self.temporalize(labels,win_size,1)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    yhat = model.predict(X, verbose=0)
-    print("yhat*************")
-    print(yhat)
+    #print("X**********")
+    #print(X)
+    yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=0)
+    #print("yhat*************")
+    #print(yhat)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]
@@ -122,26 +146,27 @@ class LSTMAutoencoder(PatternDiscovery):
     meanOfLabels=[]
     for i in range((X.shape[0])):
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
-        byRow=np.square(X[i]-yhat[i]).mean(axis=1)        
+        XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
+        byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
-        mse_timeseries.append(np.square(X[i]-yhat[i]).mean(axis=None))
+        mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=None))
         meanOfLabels.append(np.mean(l1[i]))
         mse_records.append(byRow)
         byRowArr=np.array([byRow])
-        mse_attributes.append(np.square(X[i]-yhat[i]).mean(axis=0))
+        mse_attributes.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=0))
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
-    print ("mse_timeseries***************"    )
+    #print ("mse_timeseries***************"    )
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
     mse_timeseries=list(map(add, mse_timeseries, meanOfLabels)) 
-    print (mse_timeseries)
+    #print (mse_timeseries)
 
-    print ("mse_records*******************")
+    #print ("mse_records*******************")
     #mse_records=normalize(mse_records, axis=1, norm='l1')
-    print (mse_records)
-    print ("mse_attributes****************")
-    mse_attributes=normalize(mse_attributes, axis=1, norm='l1')
-    print (mse_attributes)
+    #print (mse_records)
+    #print ("mse_attributes****************")
+    mse_attributes=normalize(mse_attributes, axis=0, norm='l1')
+    #print (mse_attributes)
     return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
 
 
