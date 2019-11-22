@@ -102,7 +102,7 @@ source venv/bin/activate <br/>
 *For csh, tcsh*:</br>
 source venv/bin/activate.csh <br/>
 
-**Run the testScript.py with appropriate arguments**<br/>
+**Run the testScriptInteractive.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
 python testScript.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
 
