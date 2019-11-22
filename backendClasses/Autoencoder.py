@@ -9,20 +9,12 @@ class Autoencoder(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    def tuneAndTrain(model, trainDataFrame):
         h2o.init()
-        #trainData=trainDataFrame       
         trainDataHex=h2o.H2OFrame(trainDataFrame)
-        #to consider categorical columns uncomment all the comments
-        """dc=DataCollection()
-        categoricalColumns=dc.findCategorical(trainDataFrame)
-        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
-        #
-        #modelGrid = H2OGridSearch(model,hyper_params=hyperParameters)
-        #modelGrid.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
         model.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
-        #gridperf1 = modelGrid.get_grid(sort_by='mse', decreasing=False)
-        #bestModel = gridperf1.models[0]
+        print("MSE*****%%%")
+        print(model.mse())
         return model
 
     @staticmethod

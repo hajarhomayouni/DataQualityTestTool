@@ -8,6 +8,8 @@ CREATE TABLE scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dataset_id TEXT,
   time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  hyperparameters TEXT,
+  network_error float,
   previously_detected float,
   suspicious_detected float,
   undetected float,

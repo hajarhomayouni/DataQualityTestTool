@@ -44,11 +44,6 @@ class DQTestToolHelper:
     datasetId=dataRecordsFilePath.split("/")[-1].replace('.csv','_').replace("-","_").replace(" ","_" ) + str(randint(1,10000))
     dataFrame.to_sql('dataRecords_'+datasetId, con=db, if_exists='replace')           
     
-    #initialize hyperparametrs
-    hyperParameters = {'rate':[0.1], 'hiddenOpt':['50,50,50'], 'l2Opt':[1e-2], 'trainedModelFilePath':trainedModelFilePath}   
-    hyperParametersDataFrame= pd.DataFrame(hyperParameters) 
-    hyperParametersDataFrame.to_sql('hyperParameters_'+datasetId, con=db, if_exists='replace')
-    
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
@@ -57,13 +52,11 @@ class DQTestToolHelper:
     return datasetId
 
 
-   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,truePositiveRateGroup):
+   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,truePositiveRateGroup,hyperParameters):
     truePositive=0.0
     truePositiveRate=0.0
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
     NR=NRDataFrame[NRDataFrame.columns.values[0]].values[0]
-    trainedModelFilePathDataFrame=pd.read_sql(sql="select trainedModelFilePath from hyperParameters_"+datasetId, con=db)
-    trainedModelFilePath=trainedModelFilePathDataFrame[trainedModelFilePathDataFrame.columns.values[0]].values[0]
 
     dataCollection=DataCollection()
     dataFramePreprocessed=pd.DataFrame()
@@ -72,7 +65,6 @@ class DQTestToolHelper:
     else:
         dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
 
-    #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
     #y=dataFrame['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
     #dataFramePreprocessed['status']=y
 
@@ -86,69 +78,27 @@ class DQTestToolHelper:
     #dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where status not like 'actual%' and status not like 'invalid'", con=db)
     dataFrameTrain=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
     
-    """validDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'valid'", con=db)
-    for i in range(50):
-        dataFrameTrain=dataFrameTrain.append(validDataFrame, ignore_index=True)"""
     dataFrameTrainPreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
-    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0)
+        #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
+    #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
+    y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('suspicious*',0,regex=True)
     #dataFrameTrainPreprocessed['status']=y
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@Set up constraint model parameters@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    patternDiscovery = PatternDiscovery()
-    bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain("","","")
-    hyperParameters=[]
-    n=len(dataFrameTrainPreprocessed.columns.values)
-    hidden_neurons=[ n/2, n/2]
-    MLmodels={"LSTMAutoencoder":"","H2O_Autoencoder":H2OAutoEncoderEstimator(), "KNN": pyod.models.knn.KNN(), "SO_GAAL":pyod.models.so_gaal.SO_GAAL(),"MO_GAAL": pyod.models.mo_gaal.MO_GAAL(), "PCA": pyod.models.pca.PCA(), "MCD": pyod.models.mcd.MCD(),"OCSVM": pyod.models.ocsvm.OCSVM(), "Pyod_Autoencoder":pyod.models.auto_encoder.AutoEncoder(hidden_neurons=hidden_neurons, epochs=10,contamination=0.5,l2_regularizer=0.5, batch_size=len(dataFrameTrain)), "LOF":pyod.models.lof.LOF()}
-    preTrainedModel=None
-    if trainedModelFilePath!="":
-        if "H2O_Autoencoder" in constraintDiscoveryMethod:
-            preTrainedModel = h2o.load_model(str(trainedModelFilePath))
-        """elif "Pyod_Autoencoder" in constraintDiscoveryMethod:
-            preTrainedModel=load_model(str(trainedModelFilePath)+".h5")"""
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@setup new model@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    if constraintDiscoveryMethod=="H2O_Autoencoder":
-        patternDiscovery=Autoencoder()            
-        #hiddenOpt=[[100],[100,100],[50,50],[50,50,50],[5,5,5],[20,20]]
-        hiddenOpt=[[10]]
-        l2Opt = [1e-4]
-        hyperParameters = {"hidden":hiddenOpt, "l2":l2Opt}
-        MLmodels[constraintDiscoveryMethod]=H2OAutoEncoderEstimator(activation="Tanh", ignore_const_cols=False, epochs=10,standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False,l2=1e-4, train_samples_per_iteration=-1,pretrained_autoencoder=preTrainedModel, rate=0.1, hidden=[100,100])
-    elif constraintDiscoveryMethod=="LSTMAutoencoder":
-        patternDiscovery=LSTMAutoencoder()
-    else:
-        patternDiscovery=Pyod()
-
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     dataFrameTimeseries=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
+        patternDiscovery=LSTMAutoencoder()
         bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
-    else:
-        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(hyperParameters,MLmodels[constraintDiscoveryMethod],dataFrameTrainPreprocessed)
+    elif constraintDiscoveryMethod=="H2O_Autoencoder":
+        patternDiscovery=Autoencoder()           
+        model=H2OAutoEncoderEstimator(activation='TanhWithDropout', epochs=hyperParameters['epochs'], standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False)#,hidden=hyperParameters['hidden'],hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
+        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(model,dataFrameTrainPreprocessed)
     
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    #@@@@@@@@@@@save the trained model for next run use@@@@@@@@@
-    #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    bestModelFileName=""
-    if "H2O_Autoencoder" in constraintDiscoveryMethod:
-        bestModelPath = h2o.save_model(model=bestConstraintDiscoveryModel, path="static/model/", force=True)         
-        bestModelFileName=bestModelPath.split('/')[len(bestModelPath.split('/'))-1]
-        trainedModelFilePath='/static/model/'+bestModelFileName
-        db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='/home/hajar/DataQualityTestTool"+trainedModelFilePath+"'")
-    elif "LSTMAutoencoder" in constraintDiscoveryMethod:
-        print ("TODO")
-    else:
-        bestConstraintDiscoveryModel.model_.save("static/model/pyod_"+str(datasetId)+".h5")
-        db.execute("update hyperparameters_"+str(datasetId)+" set trainedModelFilePath='static/model/pyod_"+str(datasetId)+"'")
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Assign invalidity scores@@@
@@ -158,6 +108,7 @@ class DQTestToolHelper:
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
     mse_attributes=[]
+    networkError=0.0
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed.to_numpy(),y)
         invalidityScores=mse_timeseries
@@ -167,9 +118,12 @@ class DQTestToolHelper:
         #Assign invalidity scores per record
         #based on average of attribute's invalidity scores
         invalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
+        networkError=bestConstraintDiscoveryModel.mse()
         #based on max of attribute's invalidity scores
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
+            print(invalidityScoresPerFeature.max(axis=1))
+            print(y)
             tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
             invalidityScores=(tempDataFrame).values.ravel()
         invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
@@ -211,7 +165,7 @@ class DQTestToolHelper:
             elif a>=d:
                 if constraintDiscoveryMethod=="LSTMAutoencoder":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries)))))))
-                if constraintDiscoveryMethod=="H2OAutoencoder":
+                if constraintDiscoveryMethod=="H2O_Autoencoder":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 
 
@@ -247,25 +201,32 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@store different scores@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     truePositiveRate=0.0
+    AFdataFrameList=[]
+    AFdataFrameOldList=[]
+    A=set()
+    AF=set()
+    E=set()
     if not AFdataFrame.empty:
+        AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
         truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
+        #AF
+        AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
+    if not AFdataFrameOld.empty:
+        AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
     falsePositiveRate=1.0-truePositiveRate
     falseNegativeRate=0.0
-
-    AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
-    AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
     diffDetection=len(set(AFdataFrameOldList).difference(set(AFdataFrameList))) 
     oldDetected=len(set(AFdataFrameOldList)) 
     if not AFdataFrameOld.empty:
         falseNegativeRate=float(diffDetection)/float(oldDetected)
     trueNegativeRate=1-falseNegativeRate
-    #A
-    A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
-    #AF
-    AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
-    #E
+    
+    #A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
+    A=set(faultyRecordFrame[faultyRecordFrame.columns.values[0]].astype(str).tolist())
+    
     knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
-    E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
+    if not knownFaults.empty:
+        E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     
     PD=SD=ND=UD=0.0
     if len(A)>0:
@@ -274,8 +235,8 @@ class DQTestToolHelper:
         SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-    db.execute('INSERT INTO scores (time, dataset_id,previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate, true_positive_rate_timeseries) VALUES (?,?,?,?,?, ?, ?, ?, ?,?,?)',(datetime.datetime.now(), datasetId,PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup))
-    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
+    db.execute('INSERT INTO scores (time, dataset_id,hyperparameters, network_error, previously_detected,suspicious_detected,undetected,newly_detected, true_positive_rate, false_positive_rate, true_negative_rate, false_negative_rate, true_positive_rate_timeseries) VALUES (?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup))
+    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
    def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y):
@@ -351,7 +312,7 @@ class DQTestToolHelper:
     return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,"",""
 
 
-   def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName):
+   def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold):
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@Cluster suspicious records@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
