@@ -87,7 +87,7 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=6
+    win_size=10
     X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,1,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
@@ -127,7 +127,7 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=6
+    win_size=10
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,1)
     l1,emptyDf=self.temporalize(labels,win_size,1)
     n_features=timeseries.shape[1]

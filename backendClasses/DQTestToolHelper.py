@@ -96,7 +96,9 @@ class DQTestToolHelper:
         bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()           
-        model=H2OAutoEncoderEstimator(activation='TanhWithDropout', epochs=hyperParameters['epochs'], standardize = True,categorical_encoding='auto',export_weights_and_biases=True, quiet_mode=False)#,hidden=hyperParameters['hidden'],hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
+        model=H2OAutoEncoderEstimator(activation='Tanh', epochs=hyperParameters['epochs'],export_weights_and_biases=True, quiet_mode=False,hidden=hyperParameters['hidden'], categorical_encoding="auto", standardize=True)#,hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
+        #patternDiscovery=Pyod()
+        #model=pyod.models.auto_encoder.AutoEncoder(hidden_neurons=[3,3], epochs=10,preprocessing=True)
         bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(model,dataFrameTrainPreprocessed)
     
 
@@ -136,12 +138,12 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,99.8)        
+    faultyThreshold=np.percentile(invalidityScores,98)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
-            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries))))))
+            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*10)/float(len(dataFrameTimeseries))))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -164,7 +166,7 @@ class DQTestToolHelper:
                 faultyThreshold=max(a,faultyThreshold)
             elif a>=d:
                 if constraintDiscoveryMethod=="LSTMAutoencoder":
-                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries)))))))
+                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*10)/float(len(dataFrameTimeseries)))))))
                 if constraintDiscoveryMethod=="H2O_Autoencoder":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 

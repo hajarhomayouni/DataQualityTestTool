@@ -10,9 +10,16 @@ class Autoencoder(PatternDiscovery):
 
     @staticmethod
     def tuneAndTrain(model, trainDataFrame):
+        #h2o.shutdown()
         h2o.init()
         trainDataHex=h2o.H2OFrame(trainDataFrame)
+        #
+        """dc=DataCollection()
+        categoricalColumns=dc.findCategorical(trainDataFrame)
+        trainDataHex[categoricalColumns] = trainDataHex[categoricalColumns].asfactor()"""
+        #
         model.train(x= list(range(0,int(len(trainDataFrame.columns)))),training_frame=trainDataHex)
+        print(model)
         print("MSE*****%%%")
         print(model.mse())
         return model

@@ -17,7 +17,7 @@ class Pyod(PatternDiscovery):
 
 
     @staticmethod
-    def tuneAndTrain(hyperParameters, model, trainDataFrame):
+    def tuneAndTrain(model, trainDataFrame):
         K.clear_session()
         model.fit(trainDataFrame)
         return model
