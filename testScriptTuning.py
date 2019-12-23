@@ -1,3 +1,5 @@
+#Note: This script only works for H2O_Autoencoder. Updates need to be made in backend classes to make it work for LSTMAutoencoder
+
 from backendClasses.DQTestToolHelper import DQTestToolHelper
 #from DataQualityTestTool.db import get_db
 #from db import get_db
