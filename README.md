@@ -104,7 +104,7 @@ source venv/bin/activate.csh <br/>
 
 **Run the testScriptInteractive.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
-python testScript.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
+python testScriptInteractive.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
 
 *where*<br/>
 *data_records_file_path* should be set to path to your data file in CSV format </br>
@@ -112,7 +112,7 @@ python testScript.py <data_records_file_path>  <trained_model_file_path>  <known
 *known_faults_file_path* should be set to path to the CSV file that stores IDs of previously known faulty records <br/>
 *constraint_discovery_method* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
 
-*Example*: python testScript.py "breastCancer.csv" "" "breastCancer_outliers.csv" "H2O_Autoencoder" <br/>
+*Example*: python testScriptInteractive.py "breastCancer.csv" "" "breastCancer_outliers.csv" "H2O_Autoencoder" <br/>
 
 *Note*: The first column of your CSV data file should be a unique ID </br>
 
