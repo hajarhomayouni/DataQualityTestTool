@@ -24,6 +24,7 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  # Make a windowing fcn
+ #Now the overlap is w-1, where w is the window size
  def temporalize(self,arr,win_size,step_size,features=None):
   """
   arr: any 2D array whose columns are distinct variables and 
