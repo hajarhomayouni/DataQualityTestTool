@@ -37,7 +37,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(200)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(200)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -47,7 +47,7 @@ class DQTestToolHelper:
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
-        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
+        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)#.tail(10)
     knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
     return datasetId
 
@@ -143,7 +143,7 @@ class DQTestToolHelper:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
-            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*10)/float(len(dataFrameTimeseries))))))
+            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries))))))
     
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
@@ -166,7 +166,7 @@ class DQTestToolHelper:
                 faultyThreshold=max(a,faultyThreshold)
             elif a>=d:
                 if constraintDiscoveryMethod=="LSTMAutoencoder":
-                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*10)/float(len(dataFrameTimeseries)))))))
+                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries)))))))
                 if constraintDiscoveryMethod=="H2O_Autoencoder":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 

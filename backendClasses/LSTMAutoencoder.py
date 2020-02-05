@@ -88,8 +88,8 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10
-    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,1,timeseries.columns.values)
+    win_size=3
+    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
@@ -97,30 +97,25 @@ class LSTMAutoencoder(PatternDiscovery):
     #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(5, activation='relu', input_shape=(win_size,n_features-2), return_sequences=True))
-    model.add(LSTM(3, activation='relu', return_sequences=False))
+    model.add(LSTM(20, activation='relu', input_shape=(win_size,n_features-2), return_sequences=True))
+    """model.add(LSTM(3, activation='relu', return_sequences=False))
     model.add(RepeatVector(win_size))
-    model.add(LSTM(3, activation='relu', return_sequences=True))
-    model.add(LSTM(5, activation='relu', return_sequences=True))
+    model.add(LSTM(4, activation='relu', return_sequences=True))"""
+    model.add(LSTM(20, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    #print("**************")
-    test=np.delete(X,0,0)
-    test=np.delete(X,0,0)
-    #print(np.delete(X,[0,1],axis=2))
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5, batch_size=10, verbose=0)
-    #
-    print("Model Weights*******************")
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5, batch_size=5, verbose=0)
+    """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
         h=layer.get_weights()
         print("*****************")
         print(len(h))
         print(h)
-        print("*************")
-        #
+        print("*************")"""
+
     return model,dataFrameTimeseries
 
 
@@ -128,9 +123,9 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,1)
-    l1,emptyDf=self.temporalize(labels,win_size,1)
+    win_size=3
+    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size)
+    l1,emptyDf=self.temporalize(labels,win_size,win_size)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
@@ -144,14 +139,14 @@ class LSTMAutoencoder(PatternDiscovery):
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
     mse_attributes=[]
-    meanOfLabels=[]
+    maxOfLabels=[]
     for i in range((X.shape[0])):
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
         XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
         byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
         mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=None))
-        meanOfLabels.append(np.mean(l1[i]))
+        maxOfLabels.append(np.max(l1[i]))
         mse_records.append(byRow)
         byRowArr=np.array([byRow])
         mse_attributes.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=0))
@@ -159,7 +154,7 @@ class LSTMAutoencoder(PatternDiscovery):
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
     #print ("mse_timeseries***************"    )
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
-    mse_timeseries=list(map(add, mse_timeseries, meanOfLabels)) 
+    mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
     #print (mse_timeseries)
 
     #print ("mse_records*******************")
