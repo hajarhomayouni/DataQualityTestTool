@@ -93,7 +93,7 @@ class DQTestToolHelper:
     dataFrameTimeseries=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
-        bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
+        bestConstraintDiscoveryModel,dataFrameTimeseries,win_size=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()           
         model=H2OAutoEncoderEstimator(activation='Tanh', epochs=hyperParameters['epochs'],export_weights_and_biases=True, quiet_mode=False,hidden=hyperParameters['hidden'], categorical_encoding="auto", standardize=True)#,hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
@@ -138,13 +138,26 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
+    #these calculations are for LSTMAutoencoder
+    minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
+    maxOfNumOfFaultyGroups=numberOfKnownFaults
+    meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
+    totalNumOfTimeseries=len(dataFrame)/win_size
+    numOfGroupsToBeReported=meanOfNumOfFaultyGroups
+    if numOfGroupsToBeReported>=totalNumOfTimeseries:
+        numOfGroupsToBeReported=minOfNumOfFaultyGroups+4
+    if numberOfKnownFaults<win_size:
+        numOfGroupsToBeReported=maxOfNumOfFaultyGroups
+    #
     faultyThreshold=np.percentile(invalidityScores,98)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
-            faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries))))))
-    
+            #faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*win_size)/float(len(dataFrameTimeseries)))/2)))
+            #faultyThreshold=np.percentile(invalidityScores, 98-(100*(float(float(numberOfKnownFaults)/float(win_size))/float(len(dataFrame)/win_size))))
+            faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
+
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
     a=(aDataFrame[aDataFrame.columns.values[0]].values[0])
     bDataFrame=pd.read_sql(sql="select max(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
@@ -166,7 +179,9 @@ class DQTestToolHelper:
                 faultyThreshold=max(a,faultyThreshold)
             elif a>=d:
                 if constraintDiscoveryMethod=="LSTMAutoencoder":
-                    faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*3)/float(len(dataFrameTimeseries)))))))
+                    #faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults/win_size)/float(len(dataFrame)/win_size))))))
+                    #faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*win_size)/float(len(dataFrameTimeseries)))/2))))
+                    faultyThreshold=max(0, min(a,np.percentile(invalidityScores, 100-100*(numberOfGroupsToBeReported/totalNumOfTimeseries))))
                 if constraintDiscoveryMethod=="H2O_Autoencoder":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 
