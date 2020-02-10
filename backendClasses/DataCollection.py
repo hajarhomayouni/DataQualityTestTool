@@ -10,6 +10,12 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import base64
+from sklearn import preprocessing
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import scale
+from sklearn.preprocessing import Binarizer
+
 
 class DataCollection:
 
@@ -21,7 +27,7 @@ class DataCollection:
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna("NULL")
+        #dataFrame=dataFrame.fillna(99999)
 
         """categoricalColumns=[]
         for column in dataFrame.columns:
@@ -36,11 +42,28 @@ class DataCollection:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])"""
-        """min_max=MinMaxScaler()
-        for column in dataFrame.columns:
+        """for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]):
-                dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])"""
+                #1
+                min_max=MinMaxScaler(feature_range=(-1, 1))
+                dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
+                #2
+                #dataFrame[[column]]=preprocessing.normalize(dataFrame[[column]], norm='l1',axis=1)
+                #3-best
+                #disc = KBinsDiscretizer(n_bins=10, encode='ordinal',strategy='kmeans')
+                #dataFrame[[column]]=disc.fit_transform(dataFrame[[column]])
+                #4
+                #dataFrame[[column]]=scale(dataFrame[[column]])
+                #5
+                #binarizer=Binarizer(threshold=0.0)
+                #dataFrame[[column]]=binarizer.fit_transform(dataFrame[[column]])
+                print("MINMAX******************")
+                print(column)
+                print(min(dataFrame[column]))
+                print(max(dataFrame[column]))"""
+
+        print (dataFrame)
         return dataFrame
 
 
@@ -50,10 +73,10 @@ class DataCollection:
         categorical_columns=[]
         for column in df_data.columns.values:
             if self.is_number(df_data.iloc[1][column])==False:
-                #df_data[column]=df_data[column].apply(hash)
+                i#df_data[column]=df_data[column].apply(hash)
                 categorical_columns.append(column)
-            #if all(float(x).is_integer() for x in df_data[column]):
-            #    categorical_columns.append(column)
+            elif all(float(x).is_integer() for x in df_data[column]):
+                categorical_columns.append(column)
         return categorical_columns
     
     def is_number(self,s):
