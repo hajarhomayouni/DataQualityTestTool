@@ -64,9 +64,9 @@ class LSTMAutoencoder(PatternDiscovery):
          print("********column")
          print(column)
          #acf
-         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=45, qstat=False, fft=None, alpha=.05, missing='none')
+         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=100, qstat=False, fft=None, alpha=.05, missing='none')
          lag_ac=1
-         for i in range(2,46):
+         for i in range(2,101):
              if abs(acf[i])>abs(confint[i,0]):
                  lag_ac=i
                  win_sizes_of_columns.append(i)
@@ -124,7 +124,7 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10#self.identifyWindowSize(timeseries)
+    win_size=10#min(5,self.identifyWindowSize(timeseries))
     print("window size************")
     print(win_size)
     X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size,timeseries.columns.values)
@@ -135,16 +135,16 @@ class LSTMAutoencoder(PatternDiscovery):
     #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(20, activation='relu', input_shape=(win_size,n_features-2), return_sequences=True))
+    model.add(LSTM(20, activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
     #model.add(LSTM(3, activation='relu', return_sequences=False))
-    #model.add(RepeatVector(win_size))
+    model.add(RepeatVector(win_size))
     #model.add(LSTM(3, activation='relu', return_sequences=True))
     model.add(LSTM(20, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5, batch_size=5, verbose=0)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5,batch_size=1, verbose=0)
     """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
@@ -161,7 +161,7 @@ class LSTMAutoencoder(PatternDiscovery):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10#self.identifyWindowSize(timeseries)
+    win_size=10#min(5,self.identifyWindowSize(timeseries))
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size)
     l1,emptyDf=self.temporalize(labels,win_size,win_size)
     #print("l1***")
@@ -169,11 +169,11 @@ class LSTMAutoencoder(PatternDiscovery):
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    #print("X**********")
-    #print(X)
+    print("X**********")
+    print(X)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=0)
-    #print("yhat*************")
-    #print(yhat)
+    print("yhat*************")
+    print(yhat)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]

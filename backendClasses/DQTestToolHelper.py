@@ -14,6 +14,7 @@ import h2o
 import numpy as np
 from .Autoencoder import Autoencoder
 from .LSTMAutoencoder import LSTMAutoencoder
+from .LSTM import LSTM
 from .Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
@@ -37,7 +38,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(200)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -47,7 +48,7 @@ class DQTestToolHelper:
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
-        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)#.tail(10)
+        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
     knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
     return datasetId
 
@@ -91,6 +92,7 @@ class DQTestToolHelper:
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     dataFrameTimeseries=pd.DataFrame()
+    win_size=1
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
         bestConstraintDiscoveryModel,dataFrameTimeseries,win_size=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed)
@@ -100,6 +102,9 @@ class DQTestToolHelper:
         #patternDiscovery=Pyod()
         #model=pyod.models.auto_encoder.AutoEncoder(hidden_neurons=[3,3], epochs=10,preprocessing=True)
         bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(model,dataFrameTrainPreprocessed)
+    elif constraintDiscoveryMethod=="LSTM":
+        patternDiscovery=LSTM()
+        bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(dataFramePreprocessed)
     
 
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -114,6 +119,8 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed.to_numpy(),y)
         invalidityScores=mse_timeseries
+    elif constraintDiscoveryMethod=="LSTM":
+        inalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     else:
         #Assign invalidity scores per feature
         invalidityScoresPerFeature=patternDiscovery.assignInvalidityScorePerFeature(bestConstraintDiscoveryModel, dataFramePreprocessed)
@@ -143,15 +150,22 @@ class DQTestToolHelper:
     maxOfNumOfFaultyGroups=numberOfKnownFaults
     meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
     totalNumOfTimeseries=len(dataFrame)/win_size
-    numOfGroupsToBeReported=meanOfNumOfFaultyGroups
+    print("TOT")
+    print(totalNumOfTimeseries)
+    numOfGroupsToBeReported=minOfNumOfFaultyGroups+2
+    print("NOG***************")
+    print(numOfGroupsToBeReported)
     if numOfGroupsToBeReported>=totalNumOfTimeseries:
         numOfGroupsToBeReported=minOfNumOfFaultyGroups+4
-    if numberOfKnownFaults<win_size:
+    elif numberOfKnownFaults<win_size:
         numOfGroupsToBeReported=maxOfNumOfFaultyGroups
+    #numOfGroupsToBeReported=abs(numOfGroupsToBeReported)
+    print("NOG***************")
+    print(numOfGroupsToBeReported)
     #
     faultyThreshold=np.percentile(invalidityScores,98)        
     if numberOfKnownFaults>0:
-        if constraintDiscoveryMethod=="H2O_Autoencoder":
+        if constraintDiscoveryMethod=="H2O_Autoencoder" or constraintDiscoveryMethod=="LSTM":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
             #faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*win_size)/float(len(dataFrameTimeseries)))/2)))
@@ -182,7 +196,7 @@ class DQTestToolHelper:
                     #faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 98-(100*(float(numberOfKnownFaults/win_size)/float(len(dataFrame)/win_size))))))
                     #faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults*win_size)/float(len(dataFrameTimeseries)))/2))))
                     faultyThreshold=max(0, min(a,np.percentile(invalidityScores, 100-100*(numberOfGroupsToBeReported/totalNumOfTimeseries))))
-                if constraintDiscoveryMethod=="H2O_Autoencoder":
+                if constraintDiscoveryMethod=="H2O_Autoencoder" or constraintDiscoveryMethod=="LSTM":
                     faultyThreshold=max(0,min(a,np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))))
 
 
@@ -272,13 +286,17 @@ class DQTestToolHelper:
     dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
     labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']
     #TODO: do not hard code time column
+    #####################
     #uncomment for DT
-    """timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=1, y=labels)
-    #timeseriesFeatures=extract_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2)
+    #timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=1, y=labels)
+    timeseriesFeatures=extract_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2)
     #impute(timeseriesFeatures)
     #timeseriesFeatures = select_features(timeseriesFeatures, labels)
     timeseriesFeatures['timeseriesId'] = timeseriesFeatures.index
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
+    print("timeseiresFeatures*************")
+    print(timeseriesFeatures)
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])
+    ######################
 
     cluster_dt_url=[]
     index=0
@@ -299,7 +317,7 @@ class DQTestToolHelper:
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #uncomment for DT
-        """#Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
+        #Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
         partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
         partialFaultyTimeseries["label"]=1
         faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
@@ -319,7 +337,8 @@ class DQTestToolHelper:
         decisionTreeImageUrls=[]
         for i in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
-        cluster_dt_url.append(decisionTreeImageUrls)"""
+        cluster_dt_url.append(decisionTreeImageUrls)
+        ###############################################
 
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
