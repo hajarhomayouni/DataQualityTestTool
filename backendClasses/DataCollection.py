@@ -42,9 +42,9 @@ class DataCollection:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])"""
-        """for column in dataFrame.columns:
+        for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
-            if self.is_number(dataFrame.iloc[1][column]):
+            if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
                 #1
                 min_max=MinMaxScaler(feature_range=(-1, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
@@ -61,7 +61,7 @@ class DataCollection:
                 print("MINMAX******************")
                 print(column)
                 print(min(dataFrame[column]))
-                print(max(dataFrame[column]))"""
+                print(max(dataFrame[column]))
 
         print (dataFrame)
         return dataFrame
