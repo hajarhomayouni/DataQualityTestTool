@@ -15,6 +15,7 @@ import tensorflow as tf
 from keras.backend import tensorflow_backend as K
 import statsmodels
 import statistics
+import keras
 
 '''
 A UDF to convert input data into 3-D
@@ -64,9 +65,9 @@ class LSTMAutoencoder(PatternDiscovery):
          print("********column")
          print(column)
          #acf
-         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=100, qstat=False, fft=None, alpha=.05, missing='none')
+         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=1000, qstat=False, fft=None, alpha=.05, missing='none')
          lag_ac=1
-         for i in range(2,101):
+         for i in range(2,1000):
              if abs(acf[i])>abs(confint[i,0]):
                  lag_ac=i
                  win_sizes_of_columns.append(i)
@@ -120,14 +121,16 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
 
- def tuneAndTrain(self,timeseries):
+ def tuneAndTrain(self,timeseries,win_size):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10#min(5,self.identifyWindowSize(timeseries))
+    #win_size=min(1000,self.identifyWindowSize(timeseries))
     print("window size************")
     print(win_size)
-    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size,timeseries.columns.values)
+    print("overlap*****************")
+    print(int(win_size/2))
+    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size-int(win_size/2),timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
@@ -135,16 +138,16 @@ class LSTMAutoencoder(PatternDiscovery):
     #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(20, activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
+    model.add(LSTM(20,kernel_initializer=keras.initializers.TruncatedNormal(mean=0.0, stddev=0.05, seed=None),activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
     #model.add(LSTM(3, activation='relu', return_sequences=False))
     model.add(RepeatVector(win_size))
     #model.add(LSTM(3, activation='relu', return_sequences=True))
-    model.add(LSTM(20, activation='relu', return_sequences=True))
+    model.add(LSTM(20, kernel_initializer=keras.initializers.TruncatedNormal(mean=0.0, stddev=0.05, seed=None),activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5,batch_size=1, verbose=0)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5,batch_size=win_size, verbose=1)
     """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
@@ -154,16 +157,16 @@ class LSTMAutoencoder(PatternDiscovery):
         print(h)
         print("*************")"""
 
-    return model,dataFrameTimeseries, win_size
+    return model,dataFrameTimeseries
 
 
- def assignInvalidityScore(self,model, timeseries,labels):
+ def assignInvalidityScore(self,model, timeseries,labels,win_size):
     #timeseries=timeseries.drop(['id','time'],axis=1)
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
-    win_size=10#min(5,self.identifyWindowSize(timeseries))
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size)
-    l1,emptyDf=self.temporalize(labels,win_size,win_size)
+    #win_size=min(1000,self.identifyWindowSize(timeseries))
+    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-int(win_size/2))
+    l1,emptyDf=self.temporalize(labels,win_size,win_size-int(win_size/2))
     #print("l1***")
     #print(l1)
     n_features=timeseries.shape[1]
@@ -171,7 +174,8 @@ class LSTMAutoencoder(PatternDiscovery):
     X = X.reshape(X.shape[0], win_size, n_features)
     print("X**********")
     print(X)
-    yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=0)
+    print(X.shape)
+    yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
     print("yhat*************")
     print(yhat)
     mse_timeseries=[]
