@@ -154,13 +154,13 @@ class DQTestToolHelper:
     totalNumOfTimeseries=len(dataFrame)/win_size
     print("TOT")
     print(totalNumOfTimeseries)
-    numOfGroupsToBeReported=minOfNumOfFaultyGroups+2
+    numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
     print("NOG***************")
     print(numOfGroupsToBeReported)
     if numOfGroupsToBeReported>=totalNumOfTimeseries:
-        numOfGroupsToBeReported=minOfNumOfFaultyGroups+4
+        numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
     elif numberOfKnownFaults<win_size:
-        numOfGroupsToBeReported=maxOfNumOfFaultyGroups
+        numOfGroupsToBeReported=2
     #numOfGroupsToBeReported=abs(numOfGroupsToBeReported)
     print("NOG***************")
     print(numOfGroupsToBeReported)
@@ -261,14 +261,31 @@ class DQTestToolHelper:
     if not knownFaults.empty:
         E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     
-    PD=SD=ND=UD=0.0
+    PD=SD=ND=UD=F1=F1_T=UD_T=0.0
     if len(A)>0:
         evaluation=Evaluation()
         PD=evaluation.previouslyDetectedFaultyRecords(A,E)
-        SD=evaluation.newlyDetectedFaultyRecords(A, E, A)
+        SD=evaluation.newlyDetectedFaultyRecords(A, E, A)#*(1/win_size)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-    db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TNR,FNR,TPR_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,PD/(PD+SD),UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup))
+        UD_ids=E.difference(A)
+        for index in normalTimeseriesIndexes[0]:
+            normalTimeseries_index=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == index] 
+            if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
+                UD_T+=1
+        if truePositiveRate>0:
+            precision=truePositiveRate/(truePositiveRate+falsePositiveRate)
+            recall=truePositiveRate/(truePositiveRate+falseNegativeRate)
+            F1=(2*precision*recall)/(precision+recall)
+        if truePositiveRateGroup>0:
+            TPR_T=truePositiveRateGroup
+            FNR_T=1-TPR_T
+            FPR_T=float(UD_T)/float(len(normalTimeseriesIndexes))
+            TNR_T=1-FPR_T
+            precision_T=TPR_T/(TPR_T+FPR_T)
+            recall_T=TPR_T/(TPR_T+FNR_T)
+            F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
+    db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TNR,FNR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup,FPR_T,F1_T))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
