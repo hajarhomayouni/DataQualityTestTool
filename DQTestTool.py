@@ -95,7 +95,7 @@ def validate():
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)    
     AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
-    truePositiveRateGroup=0.0
+    TP_T=0.0
     #
     if request.method == "POST":
         #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
@@ -114,14 +114,14 @@ def validate():
 
                 if str(i) in request.form.getlist('Group'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
-                    truePositiveRateGroup=truePositiveRateGroup+1.0
+                    TP_T+=1.0
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
                     #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
-            truePositiveRateGroup=(truePositiveRateGroup)/(float(numberOfClusters))
+        
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,truePositiveRateGroup,hyperParameters)    
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T)    
     numberOfClusters=0
     faulty_records_html=[]
     cluster_scores_fig_url=[]

@@ -15,8 +15,6 @@ CREATE TABLE scores (
   F1 float,
   UD float,
   ND float,
-  TNR float,
-  FNR float,
   FPR Float,
   TPR Float,
   TPR_T Float,

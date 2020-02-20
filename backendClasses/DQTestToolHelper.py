@@ -53,7 +53,7 @@ class DQTestToolHelper:
     return datasetId
 
 
-   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,truePositiveRateGroup,hyperParameters,win_size=None):
+   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T=None,win_size=None):
     truePositive=0.0
     truePositiveRate=0.0
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
@@ -147,31 +147,20 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    #these calculations are for LSTMAutoencoder
-    minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
-    maxOfNumOfFaultyGroups=numberOfKnownFaults
-    meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
-    totalNumOfTimeseries=len(dataFrame)/win_size
-    print("TOT")
-    print(totalNumOfTimeseries)
-    numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-    print("NOG***************")
-    print(numOfGroupsToBeReported)
-    if numOfGroupsToBeReported>=totalNumOfTimeseries:
-        numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-    elif numberOfKnownFaults<win_size:
-        numOfGroupsToBeReported=2
-    #numOfGroupsToBeReported=abs(numOfGroupsToBeReported)
-    print("NOG***************")
-    print(numOfGroupsToBeReported)
-    #
     faultyThreshold=np.percentile(invalidityScores,98)        
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder" or constraintDiscoveryMethod=="LSTM":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
-            #faultyThreshold=np.percentile(invalidityScores, (100-(100*(float(numberOfKnownFaults*win_size)/float(len(dataFrameTimeseries)))/2)))
-            #faultyThreshold=np.percentile(invalidityScores, 98-(100*(float(float(numberOfKnownFaults)/float(win_size))/float(len(dataFrame)/win_size))))
+            minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
+            maxOfNumOfFaultyGroups=numberOfKnownFaults
+            meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
+            totalNumOfTimeseries=len(dataFrame)/win_size
+            numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
+            if numOfGroupsToBeReported>=totalNumOfTimeseries:
+                numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
+            elif numberOfKnownFaults<win_size:
+                numOfGroupsToBeReported=2
             faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
 
     aDataFrame=pd.read_sql(sql="select min(invalidityScore) from dataRecords_"+datasetId+ " where status like 'actualFault%'",con=db)
@@ -233,7 +222,11 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@store different scores@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    truePositiveRate=0.0
+    ########################################
+    #Calculate scores at record level#######
+    #TODO: re-calc the record-level scores based on the confusion table
+    ########################################
+    TPR=0.0
     AFdataFrameList=[]
     AFdataFrameOldList=[]
     A=set()
@@ -241,18 +234,18 @@ class DQTestToolHelper:
     E=set()
     if not AFdataFrame.empty:
         AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
-        truePositiveRate=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
+        TPR=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
         #AF
         AF=set(AFdataFrame[AFdataFrame.columns.values[0]].astype(str).unique().tolist())
     if not AFdataFrameOld.empty:
         AFdataFrameOldList=[str(item) for item in AFdataFrameOld[dataFrame.columns.values[0]].unique().tolist()]
-    falsePositiveRate=1.0-truePositiveRate
-    falseNegativeRate=0.0
+    FPR=1.0-truePositiveRate
+    FNR=0.0
     diffDetection=len(set(AFdataFrameOldList).difference(set(AFdataFrameList))) 
     oldDetected=len(set(AFdataFrameOldList)) 
     if not AFdataFrameOld.empty:
-        falseNegativeRate=float(diffDetection)/float(oldDetected)
-    trueNegativeRate=1-falseNegativeRate
+        FNR=float(diffDetection)/float(oldDetected)
+    TNR=1-FNR
     
     #A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
     A=set(faultyRecordFrame[faultyRecordFrame.columns.values[0]].astype(str).tolist())
@@ -261,31 +254,56 @@ class DQTestToolHelper:
     if not knownFaults.empty:
         E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     
-    PD=SD=ND=UD=F1=F1_T=UD_T=0.0
+    PD=SD=ND=UD=F1=0.0
     if len(A)>0:
         evaluation=Evaluation()
         PD=evaluation.previouslyDetectedFaultyRecords(A,E)
         SD=evaluation.newlyDetectedFaultyRecords(A, E, A)#*(1/win_size)
         ND=evaluation.newlyDetectedFaultyRecords(A, E, AF)
         UD=evaluation.unDetectedFaultyRecords(A, E)
-        UD_ids=E.difference(A)
-        for index in normalTimeseriesIndexes[0]:
-            normalTimeseries_index=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == index] 
-            if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
-                UD_T+=1
-        if truePositiveRate>0:
-            precision=truePositiveRate/(truePositiveRate+falsePositiveRate)
-            recall=truePositiveRate/(truePositiveRate+falseNegativeRate)
-            F1=(2*precision*recall)/(precision+recall)
-        if truePositiveRateGroup>0:
-            TPR_T=truePositiveRateGroup
-            FNR_T=1-TPR_T
-            FPR_T=float(UD_T)/float(len(normalTimeseriesIndexes))
-            TNR_T=1-FPR_T
-            precision_T=TPR_T/(TPR_T+FPR_T)
-            recall_T=TPR_T/(TPR_T+FNR_T)
-            F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
-    db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TNR,FNR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,truePositiveRate, falsePositiveRate,trueNegativeRate, falseNegativeRate, truePositiveRateGroup,FPR_T,F1_T))
+    if TPR>0:
+        precision=TPR/(TPR+FPR)
+        recall=TPR/(TPR+FNR)
+        F1=(2*precision*recall)/(precision+recall)
+    ############################################
+    #Calculate scores at group/time series level
+    ############################################
+    #NumRealFaultyTimeseries
+    P=0.0
+    #NumRealNormalTimeseries
+    N=0.0
+    for timeseriesIndex in range(len(invalidityScores)):
+        timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex] 
+        if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
+            P+=1
+    N=len(invalidityScores)-P
+    F1_T=UD_T=FPR_T=TPR_T=0.0
+    #if None means if it is the first time we run the tool or if we are in command line mode
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        if TP_T is None:
+            TP_T=0.0
+            for i in faultyTimeseriesIndexes[0]:
+                (dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]).to_sql('faultyTimeseries_i', con=db, if_exists='replace', index=False)
+                faultyRecordsInTimeseries_i=pd.read_sql(sql="select * from faultyTimeseries_i join knownFaults_"+datasetId+ " on faultyTimeseries_i."+dataFrame.columns.values[0]+"=knownFaults_"+datasetId+"."+dataFrame.columns.values[0], con=db)
+                if (len(faultyRecordsInTimeseries_i)>0):
+                    TP_T+=1.0
+                db.execute("Drop table faultyTimeseries_i")
+            #
+            UD_ids=E.difference(A)
+            for index in normalTimeseriesIndexes[0]:
+                normalTimeseries_index=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == index] 
+                if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
+                    UD_T+=1
+            FPR_T=float(UD_T)/N
+        TPR_T=TP_T/P
+        FNR_T=1-TPR_T
+        TNR_T=1-FPR_T
+
+    if TPR_T>0:
+        precision_T=TPR_T/(TPR_T+FPR_T)
+        recall_T=TPR_T/(TPR_T+FNR_T)
+        F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
+    db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,TPR, FPR,TPR_T,FPR_T,F1_T))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 

@@ -130,7 +130,8 @@ class LSTMAutoencoder(PatternDiscovery):
     print(win_size)
     print("overlap*****************")
     print(int(win_size/2))
-    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size-int(win_size/2),timeseries.columns.values)
+    overlap=1#int(win_size/2)
+    X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size-overlap,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
@@ -165,8 +166,9 @@ class LSTMAutoencoder(PatternDiscovery):
     #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
     #K.set_session(sess)
     #win_size=min(1000,self.identifyWindowSize(timeseries))
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-int(win_size/2))
-    l1,emptyDf=self.temporalize(labels,win_size,win_size-int(win_size/2))
+    overlap=1#int(win_size/2)
+    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
+    l1,emptyDf=self.temporalize(labels,win_size,win_size-overlap)
     #print("l1***")
     #print(l1)
     n_features=timeseries.shape[1]
