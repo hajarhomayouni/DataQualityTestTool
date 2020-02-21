@@ -38,7 +38,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(1000)
     #all the data records are clean by default
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -48,12 +48,12 @@ class DQTestToolHelper:
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
-        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
+        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)#.tail(10)
     knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
     return datasetId
 
 
-   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T=None,win_size=None):
+   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T=None,win_size=100):
     truePositive=0.0
     truePositiveRate=0.0
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
@@ -95,7 +95,7 @@ class DQTestToolHelper:
     #win_size=1
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
-        if win_size==None:
+        if win_size>=100:
             win_size=patternDiscovery.identifyWindowSize(dataFramePreprocessed)
         bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed,win_size)
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
@@ -295,7 +295,8 @@ class DQTestToolHelper:
                 if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
                     UD_T+=1
             FPR_T=float(UD_T)/N
-        TPR_T=TP_T/P
+        if P>0:
+            TPR_T=TP_T/P
         FNR_T=1-TPR_T
         TNR_T=1-FPR_T
 

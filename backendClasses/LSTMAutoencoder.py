@@ -65,9 +65,9 @@ class LSTMAutoencoder(PatternDiscovery):
          print("********column")
          print(column)
          #acf
-         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=1000, qstat=False, fft=None, alpha=.05, missing='none')
+         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=100, qstat=False, fft=None, alpha=.05, missing='none')
          lag_ac=1
-         for i in range(2,1000):
+         for i in range(2,101):
              if abs(acf[i])>abs(confint[i,0]):
                  lag_ac=i
                  win_sizes_of_columns.append(i)
@@ -139,11 +139,11 @@ class LSTMAutoencoder(PatternDiscovery):
     #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(20,kernel_initializer=keras.initializers.TruncatedNormal(mean=0.0, stddev=0.05, seed=None),activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
+    model.add(LSTM(20,activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
     #model.add(LSTM(3, activation='relu', return_sequences=False))
     model.add(RepeatVector(win_size))
     #model.add(LSTM(3, activation='relu', return_sequences=True))
-    model.add(LSTM(20, kernel_initializer=keras.initializers.TruncatedNormal(mean=0.0, stddev=0.05, seed=None),activation='relu', return_sequences=True))
+    model.add(LSTM(20, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
     model.compile(optimizer='adam', loss='mse')
     model.summary()
