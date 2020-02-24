@@ -1,18 +1,18 @@
 #require a dot before name if running with flask####
-from .backendClasses.DQTestToolHelper import DQTestToolHelper
-from .backendClasses.DataCollection import DataCollection
-from .backendClasses.PatternDiscovery import PatternDiscovery
-from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from .backendClasses.SklearnRandomForest import SklearnRandomForest
-from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from .backendClasses.H2oRandomForest import H2oRandomForest
-from .backendClasses.H2oKmeans import H2oKmeans
-from .backendClasses.SOM import SOM
-from .backendClasses.Testing import Testing
-from .backendClasses.Autoencoder import Autoencoder
-from .backendClasses.Pyod import Pyod
-from .db import get_db
-from .backendClasses.Evaluation import Evaluation
+from backendClasses.DQTestToolHelper import DQTestToolHelper
+from backendClasses.DataCollection import DataCollection
+from backendClasses.PatternDiscovery import PatternDiscovery
+from backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from backendClasses.SklearnRandomForest import SklearnRandomForest
+from backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from backendClasses.H2oRandomForest import H2oRandomForest
+from backendClasses.H2oKmeans import H2oKmeans
+from backendClasses.SOM import SOM
+from backendClasses.Testing import Testing
+from backendClasses.Autoencoder import Autoencoder
+from backendClasses.Pyod import Pyod
+from db import get_db
+from backendClasses.Evaluation import Evaluation
 #####################################################
 import datetime
 import os
@@ -89,7 +89,10 @@ def validate():
     dataCollection=DataCollection()
     testing=Testing()
     #
-    hyperParameters={'hidden': [100], 'epochs': 5}
+    if constraintDiscoveryMethod=="H2O_Autoencoder":
+        hyperParameters={'hidden': [100], 'epochs': 5}
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        hyperParameters={"win_size=None"}
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
@@ -121,7 +124,7 @@ def validate():
                     #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
         
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T)    
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=100)    
     numberOfClusters=0
     faulty_records_html=[]
     cluster_scores_fig_url=[]

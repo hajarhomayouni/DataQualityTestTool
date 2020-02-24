@@ -24,6 +24,16 @@ array as required for LSTM network.
 
 class LSTMAutoencoder(PatternDiscovery):
 
+ def difference(self,dataset):
+  #approach1
+  """diff = list()
+  for i in range(interval, len(dataset)):
+      value = dataset[i] - dataset[i - interval]
+      diff.append(value)"""
+  #approach2
+  diff=dataset.diff()
+  diff.iloc[0]=diff.iloc[1]  
+  return diff
 
  # Make a windowing fcn
  #Now the overlap is w-1, where w is the window size
@@ -62,9 +72,6 @@ class LSTMAutoencoder(PatternDiscovery):
      win_sizes_of_columns=[]
      #exclude first two columns which are id and time
      for column in dataFrameTimeseries.columns.values[2:]:
-         print("********column")
-         print(column)
-         #acf
          acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=100, qstat=False, fft=None, alpha=.05, missing='none')
          lag_ac=1
          for i in range(2,101):
@@ -73,14 +80,6 @@ class LSTMAutoencoder(PatternDiscovery):
                  win_sizes_of_columns.append(i)
              else:
                  break
-         #pacf
-         """pacf, confint=statsmodels.tsa.stattools.pacf(dataFrameTimeseries[column], nlags=100,   alpha=0.05)
-         lag_ac=1
-         for i in range(2,100):
-             if abs(pacf[i])>= abs(confint[i,0]):
-                 lag_ac=i
-             else:
-                 break"""
          #
          if lag_ac>win_size:
              win_size=lag_ac
@@ -91,45 +90,11 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
 
- """def temporalize(self,timeseries, timesteps,features=None):
-    #n_features = timeseries.shape[1]
-    X = timeseries
-    y = np.zeros(len(timeseries))
-    lookback = timesteps
-    output_X = []
-    output_y = []
-    #
-    dataFrameTimeseries=pd.DataFrame()
-    #
-    for i in range(len(X)-lookback-1):
-        t = []
-        for j in range(1,lookback+1):
-            # Gather past records upto the lookback period
-            if len(X.shape)>1:
-                t.append(X[[(i+j+1)], :])
-                #
-                #convert the matrix to data frame
-                dataFrameTemp=pd.DataFrame(data=X[[(i+j+1)], :], columns=features)
-                dataFrameTemp["timeseriesId"]=i
-                dataFrameTimeseries=pd.concat([dataFrameTimeseries,dataFrameTemp])
-                #
-            else:
-                t.append(X[i+j+1])
-        output_X.append(t)
-        output_y.append(y[i+lookback+1])
-    return output_X, output_y,dataFrameTimeseries"""
-
-
-
  def tuneAndTrain(self,timeseries,win_size):
-    #timeseries=timeseries.drop(['id','time'],axis=1)
-    #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
-    #K.set_session(sess)
-    #win_size=min(1000,self.identifyWindowSize(timeseries))
+    diff= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
+    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
     print("window size************")
     print(win_size)
-    print("overlap*****************")
-    print(int(win_size/2))
     overlap=1#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size-overlap,timeseries.columns.values)
     n_features=timeseries.shape[1]
@@ -162,24 +127,23 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def assignInvalidityScore(self,model, timeseries,labels,win_size):
-    #timeseries=timeseries.drop(['id','time'],axis=1)
-    #with tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=8)) as sess:
-    #K.set_session(sess)
-    #win_size=min(1000,self.identifyWindowSize(timeseries))
+    diff= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
+    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
+    timeseries=timeseries.to_numpy()
     overlap=1#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     l1,emptyDf=self.temporalize(labels,win_size,win_size-overlap)
     #print("l1***")
-    #print(l1)
+    #print(l1.shape)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    print("X**********")
-    print(X)
-    print(X.shape)
+    #print("X**********")
+    #print(X)
+    #print(X.shape)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
-    print("yhat*************")
-    print(yhat)
+    #print("yhat*************")
+    #print(yhat.shape)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]
