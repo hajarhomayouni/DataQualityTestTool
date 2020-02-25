@@ -43,7 +43,7 @@ class LSTMAutoencoder(PatternDiscovery):
   delta_t = np.diff(crossings) / fs
     
   # Get the mean value for the period
-  period = int(np.mean(delta_t)*2)
+  period = int(np.max(delta_t))*2
     
   return period
 
