@@ -92,11 +92,11 @@ class DQTestToolHelper:
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     dataFrameTimeseries=pd.DataFrame()
-    #win_size=1
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
         if win_size==None:
             win_size=patternDiscovery.identifyWindowSize(dataFramePreprocessed)
+            hyperParameters={"auto_win_size:"+str(win_size)}
         bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed,win_size)
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()           

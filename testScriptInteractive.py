@@ -29,7 +29,7 @@ db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+da
 db.execute("Drop table faultyRecordFrame_"+datasetId) 
 
 
-for i in range(2):
+for i in range(5):
     #
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
