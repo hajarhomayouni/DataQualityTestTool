@@ -58,10 +58,6 @@ class DataCollection:
                 #5
                 #binarizer=Binarizer(threshold=0.0)
                 #dataFrame[[column]]=binarizer.fit_transform(dataFrame[[column]])
-                print("MINMAX******************")
-                print(column)
-                print(min(dataFrame[column]))
-                print(max(dataFrame[column]))
 
         print (dataFrame)
         return dataFrame
