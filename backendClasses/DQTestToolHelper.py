@@ -277,7 +277,7 @@ class DQTestToolHelper:
         if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
             P+=1
     N=len(invalidityScores)-P
-    F1_T=UD_T=FPR_T=TPR_T=0.0
+    F1_T=FP_T=FPR_T=TPR_T=0.0
     #if None means if it is the first time we run the tool or if we are in command line mode
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         if TP_T is None:
@@ -287,14 +287,16 @@ class DQTestToolHelper:
                 faultyRecordsInTimeseries_i=pd.read_sql(sql="select * from faultyTimeseries_i join knownFaults_"+datasetId+ " on faultyTimeseries_i."+dataFrame.columns.values[0]+"=knownFaults_"+datasetId+"."+dataFrame.columns.values[0], con=db)
                 if (len(faultyRecordsInTimeseries_i)>0):
                     TP_T+=1.0
+                else:
+                    FP_T+=1.0
                 db.execute("Drop table faultyTimeseries_i")
             #
-            UD_ids=E.difference(A)
+            """UD_ids=E.difference(A)
             for index in normalTimeseriesIndexes[0]:
                 normalTimeseries_index=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == index] 
                 if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
-                    UD_T+=1
-            FPR_T=float(UD_T)/N
+                    FN_T+=1"""
+            FPR_T=float(FP_T)/N
         if P>0:
             TPR_T=TP_T/P
         FNR_T=1-TPR_T

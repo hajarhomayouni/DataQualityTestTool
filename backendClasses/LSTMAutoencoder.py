@@ -16,7 +16,8 @@ from keras.backend import tensorflow_backend as K
 import statsmodels
 import statistics
 import keras
-
+import scipy
+from scipy import signal
 '''
 A UDF to convert input data into 3-D
 array as required for LSTM network.
@@ -24,6 +25,33 @@ array as required for LSTM network.
 
 class LSTMAutoencoder(PatternDiscovery):
 
+ def freq_peaks(self,sig):
+  """
+  Frequency estimation from find peaks method
+  sig - input signal
+    
+  return: 
+  dominant period
+  """
+  # Find the indices where there's a crossing
+  #indices = find((sig[1:] >= 0) & (sig[:-1] < 0))
+  #crossings=np.where(np.diff(np.sign(sig)))[0]
+  positive = sig > 0
+  peaks=scipy.signal.find_peaks(sig)[0]
+
+  # Let's calculate the real crossings by interpolate
+  #crossings = [i - sig[i] / (sig[i+1] - sig[i]) for i in indices]
+    
+  # Let's get the time between each crossing
+  # the diff function will get how many samples between each crossing
+  # we divide the sampling rate to get the time between them
+    
+  delta_t = np.diff(peaks)
+    
+  # Get the mean value for the period
+  period = int(np.max(delta_t))
+    
+  return period
  def freq_zero_crossing(self,sig, fs=1):
   """
   Frequency estimation from zero crossing method
@@ -36,30 +64,25 @@ class LSTMAutoencoder(PatternDiscovery):
   # Find the indices where there's a crossing
   positive = sig > 0
   crossings=np.where(np.bitwise_xor(positive[1:], positive[:-1]))[0]
-
+  
   # Let's get the time between each crossing
   # the diff function will get how many samples between each crossing
   # we divide the sampling rate to get the time between them
   delta_t = np.diff(crossings) / fs
     
   # Get the mean value for the period
-  period = int(np.max(delta_t))*2
+  period =int(np.max(delta_t))*2
     
   return period
 
  def difference(self,dataset):
+  #remove linear trend
+  diff=dataset.diff(periods=-1)
   #find period length to initialize interval
   interval=self.freq_zero_crossing(dataset)
-  if interval==0:
-      interval=1
-  #approach1
-  """diff = list()
-  for i in range(140, len(dataset)):
-      value = dataset.iloc[i] - dataset.iloc[i - interval]
-      diff.append(value)"""
-  #approach2
-  diff=dataset.diff(periods=-interval)
-  #diff.iloc[0]=diff.iloc[1]
+  #interval=self.freq_peaks(dataset.to_numpy().ravel())
+  #remove seasonality
+  diff=diff.diff(periods=-interval)
   print("interval*******")
   print(interval)
   return diff, interval
@@ -120,9 +143,11 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def tuneAndTrain(self,timeseries,win_size):
+    #difference transform
     diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-interval)
+    timeseries=timeseries.head(len(diff)-(interval+1))
+    #
     print("window size************")
     print(win_size)
     overlap=1#int(win_size/2)
@@ -157,9 +182,11 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def assignInvalidityScore(self,model, timeseries,labels,win_size):
+    #difference transform
     diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-interval)
+    timeseries=timeseries.head(len(diff)-(interval+1))
+    #
     timeseries=timeseries.to_numpy()
     overlap=1#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
