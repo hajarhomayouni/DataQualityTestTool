@@ -39,7 +39,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath).tail(1000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)
     print(dataFrame)
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -49,7 +49,7 @@ class DQTestToolHelper:
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
-        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath).tail(10)
+        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
     knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
     return datasetId
 
