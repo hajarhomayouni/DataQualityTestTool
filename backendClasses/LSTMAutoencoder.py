@@ -139,14 +139,16 @@ class LSTMAutoencoder(PatternDiscovery):
      #return (int)(statistics.mean(win_sizes_of_columns))
      return win_size
 
-
+ 
+   
+    
 
 
  def tuneAndTrain(self,timeseries,win_size):
     #difference transform
-    diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
+    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-(interval+1))
+    timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     print("window size************")
     print(win_size)
@@ -165,7 +167,9 @@ class LSTMAutoencoder(PatternDiscovery):
     #model.add(LSTM(3, activation='relu', return_sequences=True))
     model.add(LSTM(20, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
-    model.compile(optimizer='adam', loss='mse')
+    """def custom_loss(y_true,y_pred):
+        return K.max(K.square(y_pred - y_true))"""
+    model.compile(optimizer='adam', loss="mse")
     model.summary()
     # fit model
     model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5,batch_size=win_size, verbose=1)
@@ -183,9 +187,9 @@ class LSTMAutoencoder(PatternDiscovery):
 
  def assignInvalidityScore(self,model, timeseries,labels,win_size):
     #difference transform
-    diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
+    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-(interval+1))
+    timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
     overlap=1#int(win_size/2)
@@ -215,7 +219,7 @@ class LSTMAutoencoder(PatternDiscovery):
         #print(XWithoutIdAndTime)
         byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
-        mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=None))
+        mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).max(axis=None))
         maxOfLabels.append(np.max(l1[i]))
         mse_records.append(byRow)
         byRowArr=np.array([byRow])
