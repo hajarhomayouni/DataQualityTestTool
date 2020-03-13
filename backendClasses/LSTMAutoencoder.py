@@ -18,6 +18,8 @@ import statistics
 import keras
 import scipy
 from scipy import signal
+from eli5.sklearn import PermutationImportance
+
 '''
 A UDF to convert input data into 3-D
 array as required for LSTM network.
@@ -114,7 +116,6 @@ class LSTMAutoencoder(PatternDiscovery):
     dataFrameTemp["timeseriesId"]=k
     dataFrameTimeseries=pd.concat([dataFrameTimeseries,dataFrameTemp])
     #
-  print(dataFrameTimeseries)
   return np.array(w_list),dataFrameTimeseries
 
  #identifies window size based on autocorrelation
@@ -172,7 +173,7 @@ class LSTMAutoencoder(PatternDiscovery):
     model.compile(optimizer='adam', loss="mse")
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=5,batch_size=win_size, verbose=1)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=100,batch_size=win_size, verbose=1)
     """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
@@ -181,7 +182,9 @@ class LSTMAutoencoder(PatternDiscovery):
         print(len(h))
         print(h)
         print("*************")"""
-
+    """#show feature importance
+    perm = PermutationImportance(model, random_state=1, scoring='f1_micro').fit(X,X)
+    eli5.show_weights(perm, feature_names = timeseries.columns.vaues[2:])"""
     return model,dataFrameTimeseries
 
 
@@ -204,6 +207,10 @@ class LSTMAutoencoder(PatternDiscovery):
     #print(X)
     #print(X.shape)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
+    """print("test***************")
+    test=np.delete(X,[0,1],axis=2)[0:1]
+    print(test)
+    print(model.predict(test,verbose=1))"""
     #print("yhat*************")
     #print(yhat.shape)
     mse_timeseries=[]
@@ -237,6 +244,37 @@ class LSTMAutoencoder(PatternDiscovery):
     #print ("mse_attributes****************")
     mse_attributes=normalize(mse_attributes, axis=0, norm='l1')
     return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
+
+    
+ def findLsbs(self,model, timeseries,win_size):
+    #difference transform
+    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
+    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
+    timeseries=timeseries.head(len(diff)-(interval+1))"""
+    #
+    timeseries=timeseries.to_numpy()
+    overlap=1#int(win_size/2)
+    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
+    n_features=timeseries.shape[1]
+    X = np.array(X)
+    X = X.reshape(X.shape[0], win_size, n_features)
+    XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
+
+    testArray=XWithoutIdAndTime
+    MSE=[]
+    for i in range(1,7):
+        pos=8-i
+        random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],7-pos+1))
+        testArray[:,:,pos:8]=random_binary_matrix
+        yhat = model.predict(testArray, verbose=1)
+        mse=np.square(XWithoutIdAndTime-yhat).mean(axis=1)        
+        mse=np.mean(mse)
+        MSE.append(mse)
+
+    print("mse*************************************")
+    print(MSE)
+    return MSE
+
 
 
 

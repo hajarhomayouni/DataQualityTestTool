@@ -42,6 +42,7 @@ class DataCollection:
             data=dataFrame[col]
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])"""
+
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":

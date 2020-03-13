@@ -40,7 +40,7 @@ class DQTestToolHelper:
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
     dataFrame=dataCollection.importData(dataRecordsFilePath)
-    print(dataFrame)
+    #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
     datasetId=dataRecordsFilePath.split("/")[-1].replace('.csv','_').replace("-","_").replace(" ","_" ) + str(randint(1,10000))
@@ -122,6 +122,7 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed,y,win_size)
         invalidityScores=mse_timeseries
+        #patternDiscovery.findLsbs(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
         inalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     else:
@@ -134,8 +135,6 @@ class DQTestToolHelper:
         #based on max of attribute's invalidity scores
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
-            print(invalidityScoresPerFeature.max(axis=1))
-            print(y)
             tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
             invalidityScores=(tempDataFrame).values.ravel()
         invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
@@ -336,36 +335,20 @@ class DQTestToolHelper:
     print(timeseriesFeatures)
     normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
     ######################
-    print("dataFrameTimeseries")
-    print(dataFrameTimeseries)
     #approach2: tsfeatures 
     tsFeatures=TSFeatures()
     normalFeatures=pd.DataFrame()
-    print("normal timeseries Indexes")
-    print(normalTimeseriesIndexes)
     for i in normalTimeseriesIndexes[0]:
         partialNormalFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
         partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame)
-        print("partial normal features")
-        print(partialNormalFeatures)
         df_attributes=pd.DataFrame()
         #exclude last index which is timeseriesId
         index=0
         for attribute_features in partialNormalFeatures:
-            print("attribute_features")
-            print(attribute_features)
             cols=[partialNormalFrame.columns.values[index]+"_"+col for col in ['mean','variance','lumpiness','lshift','vchange','linearity','curvature','spikiness','BurstinessFF','minimum','maximum','rmeaniqmean','moment3','highlowmu']]
             data=np.array(attribute_features)
-            print(data.shape)
-            print(len(cols))
             df_attribute=pd.DataFrame(data=data[None],columns=cols)
-            print("df_attribute")
-            print(df_attribute)
             df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
-            print("df_attributes")
-            print(df_attributes)
-            print("i")
-            print(i)
 
             #df_attributes['label']=0
             #df_attributes['timeseriesId']=i
@@ -375,14 +358,10 @@ class DQTestToolHelper:
             index+=1
         df_attributes.insert(loc=len(df_attributes.columns), column='label', value=0)
         df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
-        print("df_attributes*******************************")
-        print(df_attributes.columns.values)
         normalFeatures=pd.concat([normalFeatures,df_attributes])
-    print("normalFeatures")
-    print(normalFeatures)
     normalFrame=normalFeatures
-    normalFrame.replace([np.inf,i -np.inf], np.nan)
-    normalFrame.dropna(inplace=True)
+    normalFrame=normalFrame.fillna(0)
+    normalFrame=normalFrame.replace(np.inf, 0)
 
 
 
@@ -424,25 +403,14 @@ class DQTestToolHelper:
         ###############################################
         #approach2: tsfeatures from oddstream
         faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
-        print(faultyFrame)
         df_attributes=pd.DataFrame()
         faultyFeatures=tsFeatures.extract_features(faultyFrame)
         attribute_index=0
         for attribute_features in faultyFeatures:
-            print("attribute_features")
-            print(attribute_features)
             cols=[faultyFrame.columns.values[attribute_index]+"_"+col for col in ['mean','variance','lumpiness','lshift','vchange','linearity','curvature','spikiness','BurstinessFF','minimum','maximum','rmeaniqmean','moment3','highlowmu']]
             data=np.array(attribute_features)
-            print(data.shape)
-            print(len(cols))
             df_attribute=pd.DataFrame(data=data[None],columns=cols)
-            print("df_attribute")
-            print(df_attribute)
             df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
-            print("df_attributes")
-            print(df_attributes)
-            print("i")
-            print(i)
 
             #df_attributes['label']=1
             #df_attributes['timeseriesId']=i
@@ -451,21 +419,18 @@ class DQTestToolHelper:
             attribute_index+=1
         df_attributes.insert(loc=len(df_attributes.columns), column='label', value=1)
         df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
-        print("df_attributes columns************")
-        print(df_attributes.columns.values)
         faultyFrame=df_attributes
+        faultyFrame=faultyFrame.fillna(0)
+        faultyFrame=faultyFrame.replace(np.inf, 0)
 
         ###############################################
 
         #faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
-        print("normalFrame")
-        print(normalFrame)
-        print(normalFrame.columns.values)
-        print("faultyFrame")
-        print(faultyFrame)
-        print(faultyFrame.columns.values)
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
-        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+
+
+        #decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
             tree=SklearnDecisionTree()
@@ -474,8 +439,6 @@ class DQTestToolHelper:
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
         faulty_attributes=faultyFrame.columns.values[:-2]
-        print("faulty_attributes")        
-        print(faulty_attributes)
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
         decisionTreeImageUrls=[]
