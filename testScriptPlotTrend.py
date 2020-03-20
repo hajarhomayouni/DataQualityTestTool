@@ -71,7 +71,7 @@ print(columnName)
 #Reading the Scores CSV File and converting it to SQL Table for better reading
 db=sqlite3.connect("scores.sqlite")
 cursor = db.cursor()
-cursor.execute("DROP TABLE scores_sq")
+cursor.execute("DROP TABLE IF EXISTS scores_sq")
 data = pd.read_csv(fileName).to_sql('scores_sq', con=db);
 
 #Readinf the ScoreID CSV File
@@ -122,7 +122,7 @@ def calculate_growth_rate(iddataframe, growth_rates):
         F1_T1 = F1_Ts["F1_T"][0]
         F1_TNR = F1_Ts["F1_T"][NR]
 
-        F1_TGR = (F1_TNR/F1_T1)**(1/NR) - 1
+        F1_TGR = ((F1_TNR/F1_T1)**(1/NR)) - 1
 
         growth_rates.append(F1_TGR)
 
