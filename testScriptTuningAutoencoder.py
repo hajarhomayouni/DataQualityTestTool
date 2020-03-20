@@ -11,7 +11,7 @@ import sqlite3
 constraintDiscoveryMethod=sys.argv[4]
 
 
-db=sqlite3.connect("/home/hajar/instance/dq.sqlite")
+db=sqlite3.connect("/s/bach/h/proj/etl/shlok/instance/dq.sqlite")
 dQTestToolHelper=DQTestToolHelper()
 datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trainedModelFilePath=sys.argv[2],knownFaultsFilePath=sys.argv[3])
 #
