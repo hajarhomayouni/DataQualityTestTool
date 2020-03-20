@@ -19,6 +19,7 @@ from .Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
 from .Evaluation import Evaluation
+from .TSFeatures import TSFeatures
 import datetime
 
 
@@ -38,8 +39,8 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(1000)
-    #all the data records are clean by default
+    dataFrame=dataCollection.importData(dataRecordsFilePath)
+    #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
     datasetId=dataRecordsFilePath.split("/")[-1].replace('.csv','_').replace("-","_").replace(" ","_" ) + str(randint(1,10000))
@@ -48,7 +49,7 @@ class DQTestToolHelper:
     #store knowFaults in database
     knownFaultsFrame=pd.DataFrame()
     if len(knownFaultsFilePath)>0:
-        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)#.tail(10)
+        knownFaultsFrame=dataCollection.importData(knownFaultsFilePath)
     knownFaultsFrame.to_sql('knownFaults_'+datasetId, con=db, if_exists='replace')
     return datasetId
 
@@ -121,6 +122,7 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed,y,win_size)
         invalidityScores=mse_timeseries
+        #patternDiscovery.findLsbs(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
         inalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     else:
@@ -133,8 +135,6 @@ class DQTestToolHelper:
         #based on max of attribute's invalidity scores
         if constraintDiscoveryMethod=="H2O_Autoencoder":
             #invalidityScores=invalidityScoresPerFeature.max(axis=1).values.ravel()
-            print(invalidityScoresPerFeature.max(axis=1))
-            print(y)
             tempDataFrame=invalidityScoresPerFeature.max(axis=1)+y
             invalidityScores=(tempDataFrame).values.ravel()
         invalidityScoresWithId= pd.concat([dataFrame[dataFrame.columns[0]], pd.DataFrame(invalidityScores, columns=['invalidityScore'])], axis=1, sort=False)
@@ -315,8 +315,9 @@ class DQTestToolHelper:
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
     cluster_scores_fig_url=[]
+    timeseries_fig_urls=[]
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
-    dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
+    """dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
     normalTimeseries["label"]=0
     normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=["timeseriesId"])
@@ -324,21 +325,50 @@ class DQTestToolHelper:
     faultyTimeseries["label"]=1
     faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=["timeseriesId"])
     dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
-    labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']
-    #TODO: do not hard code time column
+    labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']"""
     #####################
-    #uncomment for DT
-    #timeseriesFeatures=extract_relevant_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=1, y=labels)
+    #approach1: tsfresh features
+    """
     timeseriesFeatures=extract_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2)
-    #impute(timeseriesFeatures)
-    #timeseriesFeatures = select_features(timeseriesFeatures, labels)
     timeseriesFeatures['timeseriesId'] = timeseriesFeatures.index
     print("timeseiresFeatures*************")
     print(timeseriesFeatures)
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])
+    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
     ######################
+    #approach2: tsfeatures 
+    tsFeatures=TSFeatures()
+    normalFeatures=pd.DataFrame()
+    for i in normalTimeseriesIndexes[0]:
+        partialNormalFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
+        partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame)
+        df_attributes=pd.DataFrame()
+        #exclude last index which is timeseriesId
+        index=0
+        for attribute_features in partialNormalFeatures:
+            cols=[partialNormalFrame.columns.values[index]+"_"+col for col in ['mean','variance','lumpiness','lshift','vchange','linearity','curvature','spikiness','BurstinessFF','minimum','maximum','rmeaniqmean','moment3','highlowmu']]
+            data=np.array(attribute_features)
+            df_attribute=pd.DataFrame(data=data[None],columns=cols)
+            df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
 
+            #df_attributes['label']=0
+            #df_attributes['timeseriesId']=i
+            #df_attributes.assign(label=[0])
+            #df_attributes.assign(timeseriesId=[i])
+
+            index+=1
+        df_attributes.insert(loc=len(df_attributes.columns), column='label', value=0)
+        df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
+        normalFeatures=pd.concat([normalFeatures,df_attributes])
+    normalFrame=normalFeatures
+    normalFrame=normalFrame.fillna(0)
+    normalFrame=normalFrame.replace(np.inf, 0)
+
+
+
+    #######################
     cluster_dt_url=[]
+
+
     index=0
     for i in faultyTimeseriesIndexes[0]:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
@@ -346,6 +376,16 @@ class DQTestToolHelper:
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
         cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        """X=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['time']
+        Y=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['value']
+        print("dataFrameTimeseries")
+        print(dataFrameTimeseries)
+        print("X")
+        print(X)
+        print("Y")
+        print(Y)
+        timeseries_fig_urls.append(dataCollection.build_graph(X,Y))"""
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -358,11 +398,39 @@ class DQTestToolHelper:
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #uncomment for DT
         #Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
-        partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
-        partialFaultyTimeseries["label"]=1
-        faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
+        """partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
+        partialFaultyTimeseries["label"]=1"""
+        ###############################################
+        #approach2: tsfeatures from oddstream
+        faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
+        df_attributes=pd.DataFrame()
+        faultyFeatures=tsFeatures.extract_features(faultyFrame)
+        attribute_index=0
+        for attribute_features in faultyFeatures:
+            cols=[faultyFrame.columns.values[attribute_index]+"_"+col for col in ['mean','variance','lumpiness','lshift','vchange','linearity','curvature','spikiness','BurstinessFF','minimum','maximum','rmeaniqmean','moment3','highlowmu']]
+            data=np.array(attribute_features)
+            df_attribute=pd.DataFrame(data=data[None],columns=cols)
+            df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
+
+            #df_attributes['label']=1
+            #df_attributes['timeseriesId']=i
+            #df_attributes.assign(label=[0])
+            #df_attributes.assign(timeseriesId=[i])
+            attribute_index+=1
+        df_attributes.insert(loc=len(df_attributes.columns), column='label', value=1)
+        df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
+        faultyFrame=df_attributes
+        faultyFrame=faultyFrame.fillna(0)
+        faultyFrame=faultyFrame.replace(np.inf, 0)
+
+        ###############################################
+
+        #faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
-        decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+
+
+        #decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
+        decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
             tree=SklearnDecisionTree()
@@ -370,8 +438,7 @@ class DQTestToolHelper:
             tree=SklearnRandomForest()
         if interpretationMethod=="H2o Random Forest":
             tree=H2oRandomForest()
-        faulty_attributes=timeseriesFeatures.columns.values[:-1]
-        
+        faulty_attributes=faultyFrame.columns.values[:-2]
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
         decisionTreeImageUrls=[]
@@ -385,7 +452,7 @@ class DQTestToolHelper:
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
 
 
-    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,"",""
+    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,"",""
 
 
    def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold):

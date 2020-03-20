@@ -132,12 +132,12 @@ def validate():
     cluster_interpretation=[]
     treeRules=[] 
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
+        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
     else:
         numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
     db.commit()
     db.close()
-    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules)
+    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, timeseries_fig_urls=timeseries_fig_urls,cluster_interpretation=cluster_interpretation, treeRules=treeRules)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

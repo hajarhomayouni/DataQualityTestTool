@@ -19,8 +19,12 @@ numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.colum
 suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious'", con=db)
 dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)    
 AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
-truePositiveRateGroup=0.0
+
 #
+<<<<<<< HEAD
+=======
+faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,win_size=10)    
+>>>>>>> 4efccf566823310666ae3b3a8f9dbbfaaca731b7
 
 window_size = [10, 20, 30, 40, 50]
 

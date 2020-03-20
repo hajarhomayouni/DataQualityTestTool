@@ -20,6 +20,9 @@
 	    {%for image in cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
+	    {%for image in timeseries_fig_urls[loop.index0] %}
+	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
+	    {% endfor %}
 	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
