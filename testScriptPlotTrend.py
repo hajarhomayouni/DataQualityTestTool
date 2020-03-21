@@ -68,6 +68,9 @@ columnList = ["all_columns", "Loss", "PD", "SD", "F1", "UD", "ND", "FPR", "TPR",
 columnName = columnList[int(columnNum)]
 print(columnName)
 
+#GraphTitle
+graph_title = input("Please Enter the Title for the Plot: (This name will also be used in Filenaming)\n")
+
 #Reading the Scores CSV File and converting it to SQL Table for better reading
 db=sqlite3.connect("scores.sqlite")
 cursor = db.cursor()
@@ -81,18 +84,13 @@ iddataframe = iddataframe["id"].values.tolist()
 
 #print(pd.read_sql(sql="select * from scores_sq", con=db));
 #print(pd.read_sql(sql="select dataset_id,time,HP from scores_sq", con=db))
-id_win_size = []
 
 #Gets the window size/Hyper Parameter for all the datasets id passed in the scoreid.csv file
-def get_win_size(iddataframe):
+def get_win_size(iddataframe, id_win_size):
     for id in iddataframe:
         wsize = pd.read_sql(sql="select HP from scores_sq where dataset_id like '" + id + "'", con=db)
         wsize = wsize["HP"][0]
         id_win_size.append(wsize)
-
-get_win_size(iddataframe)
-
-time_taken_by_datasets = []
 
 #Calcuates the time difference for the datasets id passed in the scoreid.csv file
 def calculate_time(iddataframe ,time_taken_by_datasets):
@@ -109,10 +107,6 @@ def calculate_time(iddataframe ,time_taken_by_datasets):
         stringtime = str(timediff.seconds) + "." + str(timediff.microseconds)
         time_taken_by_datasets.append(stringtime)
 
-calculate_time(iddataframe, time_taken_by_datasets)
-
-growth_rates = []
-
 def calculate_growth_rate(iddataframe, growth_rates):
     for id in iddataframe:
         F1_Ts = pd.read_sql(sql="select F1_T from scores_sq where dataset_id like '" + id + "'", con=db)
@@ -126,15 +120,22 @@ def calculate_growth_rate(iddataframe, growth_rates):
 
         growth_rates.append(F1_TGR)
 
-calculate_growth_rate(iddataframe, growth_rates)
-
 #Method to create graphs from all DataSets for a specific Column
 def plot_by_column(Name):
+    id_win_size = []
+    get_win_size(iddataframe, id_win_size)
+
+    time_taken_by_datasets = []
+    calculate_time(iddataframe, time_taken_by_datasets)
+
+    growth_rates = []
+    calculate_growth_rate(iddataframe, growth_rates)
+
     fig=plt.figure(figsize=(20,10))
     plt.xlabel("Number of Tests", fontsize=20)
     plt.ylabel(Name, fontsize=20)
     
-    plot_title = iddataframe[0][0:iddataframe[0].rfind('_')]
+    plot_title = graph_title
 
     plt.title(plot_title, fontsize=30)
     markers = ['o', 'v', '^', '<', '>', '1', '2', '3', '4', '8', 's', 'p', 'P', '*', 'h', 'H', '+', 'x', 'X', 'D']
