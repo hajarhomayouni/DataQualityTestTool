@@ -160,7 +160,7 @@ def average(datalist, coordinatelist):
 def writeCSV(avg_time_taken, avg_growth_rates):
     avg_time_taken.insert(0, "Average Time Taken in Seconds")
     avg_growth_rates.insert(0, "Average Growth Rates")
-    with open('time_growthrate.csv', 'w', newline = '') as file:
+    with open(dataset_type + '_time_growthrate.csv', 'w', newline = '') as file:
         writer = csv.writer(file)
         writer.writerow(["Attributes/Datasets", dataset_type+"_datasets_best_win_size", dataset_type+"_datasets_auto_win_size"])
         writer.writerow(avg_time_taken)
