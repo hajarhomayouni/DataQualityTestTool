@@ -122,7 +122,7 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed,y,win_size)
         invalidityScores=mse_timeseries
-        #patternDiscovery.findLsbs(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
+        patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
         inalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     else:
