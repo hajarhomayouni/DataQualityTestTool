@@ -188,7 +188,7 @@ def plot_by_column(columnName):
     writeCSV(avg_time_taken, avg_growth_rates)
 
     fig=plt.figure(figsize=(20,12))
-    plt.xlabel("Number of Tests", fontsize=20)
+    plt.xlabel("Number of Runs", fontsize=20)
     plt.ylabel(columnName, fontsize=20)
     
     plot_title = graph_title

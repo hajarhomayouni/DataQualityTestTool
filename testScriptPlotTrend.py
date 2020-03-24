@@ -132,7 +132,7 @@ def plot_by_column(Name):
     calculate_growth_rate(iddataframe, growth_rates)
 
     fig=plt.figure(figsize=(20,10))
-    plt.xlabel("Number of Tests", fontsize=20)
+    plt.xlabel("Number of Runs", fontsize=20)
     plt.ylabel(Name, fontsize=20)
     
     plot_title = graph_title
