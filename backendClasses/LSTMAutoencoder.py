@@ -158,22 +158,20 @@ class LSTMAutoencoder(PatternDiscovery):
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    #print ("X**********")
-    #print(X)
     # define model
     model = Sequential()
-    model.add(LSTM(20,activation='relu', input_shape=(win_size,n_features-2), return_sequences=False))
+    model.add(LSTM(20,activation='tanh', input_shape=(win_size,n_features-2), return_sequences=False))
     #model.add(LSTM(3, activation='relu', return_sequences=False))
     model.add(RepeatVector(win_size))
     #model.add(LSTM(3, activation='relu', return_sequences=True))
-    model.add(LSTM(20, activation='relu', return_sequences=True))
+    model.add(LSTM(20, activation='tanh', return_sequences=True))
     model.add(TimeDistributed(Dense(n_features-2)))
     """def custom_loss(y_true,y_pred):
         return K.max(K.square(y_pred - y_true))"""
     model.compile(optimizer='adam', loss="mse")
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=100,batch_size=win_size, verbose=1)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=100,batch_size=X.shape[0], verbose=1)
     """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
@@ -198,21 +196,14 @@ class LSTMAutoencoder(PatternDiscovery):
     overlap=1#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     l1,emptyDf=self.temporalize(labels,win_size,win_size-overlap)
-    #print("l1***")
-    #print(l1.shape)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
-    #print("X**********")
-    #print(X)
-    #print(X.shape)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
     """print("test***************")
     test=np.delete(X,[0,1],axis=2)[0:1]
     print(test)
     print(model.predict(test,verbose=1))"""
-    #print("yhat*************")
-    #print(yhat.shape)
     mse_timeseries=[]
     mse_records=[]
     yhatWithInvalidityScores=[]
@@ -222,8 +213,6 @@ class LSTMAutoencoder(PatternDiscovery):
     for i in range((X.shape[0])):
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
         XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
-        #print("XWithoutIdAndTime")
-        #print(XWithoutIdAndTime)
         byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)        
         byRow=[i/sum(byRow) for i in byRow]
         mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).max(axis=None))
@@ -233,24 +222,14 @@ class LSTMAutoencoder(PatternDiscovery):
         mse_attributes.append(np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=0))
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
         XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
-    #print ("mse_timeseries***************"    )
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
     mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
-    #print (mse_timeseries)
 
-    #print ("mse_records*******************")
     #mse_records=normalize(mse_records, axis=1, norm='l1')
-    #print (mse_attributes)
-    #print ("mse_attributes****************")
-
     #mse_attributes=normalize(mse_attributes, axis=0, norm='l1')
     
     #find_LSbs_approach 4:
     print("LSBs************************")
-    print(mse_attributes)
-    #print(mse_attributes.shape)
-
-    print("#############################")
     print(np.mean(mse_attributes, axis=0))
     #
     return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
@@ -271,23 +250,15 @@ class LSTMAutoencoder(PatternDiscovery):
     X = X.reshape(X.shape[0], win_size, n_features)
     XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
 
-    testArray=XWithoutIdAndTime
+    testArray=np.copy(XWithoutIdAndTime)
     MSE=[]
     for i in range(1,7):
         pos=8-i
         random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],7-pos+1))
-        print("random_binary_matrix")
-        print(random_binary_matrix)
         testArray[:,:,pos:8]=random_binary_matrix
-        print("testArray******")
-        print(testArray)
-        print("XwithoutId and time")
-        print(XWithoutIdAndTime)
         
         yhat = model.predict(testArray, verbose=1)
         loss = model.evaluate(testArray, testArray, verbose=1)
-        print("yhat******")
-        print(yhat)
 
         mse=np.square(testArray-yhat).mean(axis=1)        
         mse=np.mean(mse)
@@ -314,21 +285,13 @@ class LSTMAutoencoder(PatternDiscovery):
 
     MSE=[]
     for i in range(1,7):
-        testArray=XWithoutIdAndTime
+        testArray=np.copy(XWithoutIdAndTime)
         pos=8-i
         random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],1))
-        print("random_binary_matrix")
-        print(random_binary_matrix)
         testArray[:,:,pos:pos+1]=random_binary_matrix
-        print("testArray******")
-        print(testArray)
-        print("XwithoutId and time")
-        print(XWithoutIdAndTime)
         
         yhat = model.predict(testArray, verbose=1)
         loss = model.evaluate(testArray, testArray, verbose=1)
-        print("yhat******")
-        print(yhat)
 
         mse=np.square(testArray-yhat).mean(axis=1)        
         mse=np.mean(mse)
@@ -355,21 +318,12 @@ class LSTMAutoencoder(PatternDiscovery):
 
     MSE=[]
     for i in range(0,16):
-        testArray=XWithoutIdAndTime
+        testArray=np.copy(XWithoutIdAndTime)
         pos=i
         random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],1))
-        print("random_binary_matrix")
-        print(random_binary_matrix)
-        testArray[:,:,pos:pos+1]=random_binary_matrix
-        print("testArray******")
-        print(testArray)
-        print("XwithoutId and time")
-        print(XWithoutIdAndTime)
+        testArray[:,:, pos:pos+1]=random_binary_matrix
         
         yhat = model.predict(testArray, verbose=1)
-        loss = model.evaluate(testArray, testArray, verbose=1)
-        print("yhat******")
-        print(yhat)
 
         mse=np.square(testArray-yhat).mean(axis=1)        
         mse=np.mean(mse)
