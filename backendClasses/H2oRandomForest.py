@@ -11,7 +11,7 @@ class H2oRandomForest(Interpretation):
     @staticmethod
     def train(trainDataFrame, featuresList, target):
         #h2o.shutdown()
-        h2o.connect()
+        #h2o.connect()
         h2o.init()
         fl1=list(featuresList)
         fl=fl1+[target]
