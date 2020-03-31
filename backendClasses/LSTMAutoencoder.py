@@ -123,21 +123,27 @@ class LSTMAutoencoder(PatternDiscovery):
      dataFrameTimeseries=pd.DataFrame(timeseries)
      win_size=1
      win_sizes_of_columns=[]
+     lag_acs=[]
      #exclude first two columns which are id and time
      for column in dataFrameTimeseries.columns.values[2:]:
-         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=100, qstat=False, fft=None, alpha=.05, missing='none')
+         acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=False, nlags=1000, qstat=False, fft=None, alpha=.05, missing='none')
          lag_ac=1
-         for i in range(2,101):
+         for i in range(2,1001):
              if abs(acf[i])>abs(confint[i,0]):
                  lag_ac=i
                  win_sizes_of_columns.append(i)
              else:
                  break
          #
+         lag_acs.append(lag_ac)
          if lag_ac>win_size:
              win_size=lag_ac
+         if win_size>100:
+             win_size=100
 
      #return (int)(statistics.mean(win_sizes_of_columns))
+     print("autocorrelations**************")
+     print(lag_acs)
      return win_size
 
  
