@@ -39,7 +39,7 @@ class DQTestToolHelper:
     
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(1000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath).head(1000)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
