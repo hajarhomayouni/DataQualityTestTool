@@ -146,10 +146,10 @@ class LSTMAutoencoder(PatternDiscovery):
              win_size=10
 
      #return (int)(statistics.mean(win_sizes_of_columns))
-     print("autocorrelations**************")
+     """print("autocorrelations**************")
      print(lag_acs)
      sorted_MSE=sorted(MSE.items(), key=lambda x: x[1])
-     print(sorted_MSE)
+     print(sorted_MSE)"""
      return win_size
 
  
