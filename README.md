@@ -51,6 +51,7 @@ pip install keras<br/>
 pip install --upgrade tensorflow<br/>
 pip install flask<br/>
 pip install graphviz<br/>
+pip install sklearn<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
@@ -102,6 +103,7 @@ source venv/bin/activate <br/>
 *For csh, tcsh*:</br>
 source venv/bin/activate.csh <br/>
 
+
 **Run the testScriptInteractive.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
 python testScriptInteractive.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
@@ -125,7 +127,7 @@ python testScriptInteractive.py <data_records_file_path>  <trained_model_file_pa
 *AF_new*: Set of faults detected in the current run <br/>
 *NR*: Number of runs <br/>
 
-The script measures the follwoing values for 10 runs of tool for the input CSV data and stores the results in scores.csv <br/>
+The script measures the follwoing values for 10 runs of tool for the input CSV data and stores (overwrites) the results in scores.csv <br/>
 *True Positive Rate (TPR)*: |AF|/|A|</br>
 *True Positive Growth Rate (TPGR)*: ((lastTPR/firstTPR)^(1/NR))-1</br>
 *Previously Detected faulty records (PD)*: |E^A|/|E|</br> 
