@@ -114,24 +114,18 @@ def validate():
         #maxInvalidityScoreOfNormalData=[]
         if numberOfClusters:
             for i in range(int(numberOfClusters)):
-                #TODO: update based on the id of records in that group
-                #
-                print("*****************")
-                print(request.form.get("group0"))
-                print(request.form.get("group1"))
-                group_table = pd.read_html(request.form.get("group"+str(i)))
-                print("group table")
-                print(group_table)
-
-
-                #
-                if str(i) in request.form.getlist('Group_suspicious'):
+                print("group number************************")
+                print(i)
+                print( request.form.getlist('Group_suspicious') )
+                print( request.form.getlist('Group_faulty') )
+                if str(i) in request.form.getlist('Group_suspicious')  or str(i) in request.form.getlist('Group_faulty'):
+                    print("i is selected ***********************")
+                    print(str(i))
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     TP_T+=1.0
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
-                    #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
         
     
     faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=10)    

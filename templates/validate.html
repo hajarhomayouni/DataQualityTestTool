@@ -17,27 +17,21 @@
     <strong>Confirmed Faulty Groups</strong>
     </p>
     {%for item in faulty_data.split('@')%}
-	    <label for="group">Group_{{loop.index0}}</label>
-	    <input type="checkbox" name="Group_faulty" value="{{loop.index0}}" checked/> </br>
+	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="faulty_group">{{ item | safe }}</div></br>
 	    <img src='{{faulty_fig_urls[loop.index0]}}' align="left" ></img></br>
 	    {%for image in faulty_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
-	   <input type="hidden" name="faulty_group" value="{{ item |safe }}" />
-	   <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="faulty_group">{{ item | safe }}</div></br>
     {% endfor %}
     <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
     <strong>Suspicious Groups</strong>
     </p>
     {%for item in suspicious_data.split('@')%}
-	    <label for="group">Group_{{loop.index0}}</label>
-	    <input type="checkbox" name="Group_suspicious" value="{{loop.index0}}"/> </br>
+	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="suspicious_group">{{ item | safe }}</div></br>
 	    <img src='{{suspicious_fig_urls[loop.index0]}}' align="left" ></img></br>
 	    {%for image in suspicious_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
-	    <!--<input type="hidden" name="suspicious_group" value="{{ item |safe }}" />-->
-	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="suspicious_group">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
     <a href="{{bestModelFile}}" target="blank">save model</a>

@@ -506,6 +506,8 @@ class DQTestToolHelper:
     #show the suspicious groups as HTML tables
 
     for i in range(int(numberOfClusters)):
+        print("i*****************")
+        print(i)
         faulty_records=dataFrames[i]
         faulty_attributes=dataFrame.columns.values[1:-2]
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
@@ -532,15 +534,17 @@ class DQTestToolHelper:
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
         decisionTreeImageUrls=[]
-        for i in range(numberOfTrees):
-            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
+        for j in range(numberOfTrees):
+            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
         if faulty_records['invalidityScore'].max()>=1.0:
+            print(i)
             #confirmed faulty records
-            faulty_records_html.append(faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
+            faulty_records_html.append('<label for="group">Group_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
             faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
         else:
-            suspicious_records_html.append(faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
+            print(i)
+            suspicious_records_html.append('<label for="group">Group_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)
         #treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
