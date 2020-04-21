@@ -247,6 +247,7 @@ class LSTMAutoencoder(PatternDiscovery):
     sorted_MSE=sorted(MSE.items(), key=lambda x: x[1])
     print("LSbs based on reconstruction error per bit************************")
     print(mse)
+    print(np.mean(mse))
     print("******sorted****************")
     print(sorted_MSE)
     #
@@ -350,6 +351,7 @@ class LSTMAutoencoder(PatternDiscovery):
         mses.append(mse)
     print("LSbs based on reconstruction error of mutated data*************************************")
     print(mses)
+    print(np.mean(mse))
     print("******sorted****************")
     sorted_MSE=sorted(MSE.items(), key=lambda x: x[1])
     print(sorted_MSE)

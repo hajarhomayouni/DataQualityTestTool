@@ -1,18 +1,18 @@
 #require a dot before name if running with flask####
-from backendClasses.DQTestToolHelper import DQTestToolHelper
-from backendClasses.DataCollection import DataCollection
-from backendClasses.PatternDiscovery import PatternDiscovery
-from backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from backendClasses.SklearnRandomForest import SklearnRandomForest
-from backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from backendClasses.H2oRandomForest import H2oRandomForest
-from backendClasses.H2oKmeans import H2oKmeans
-from backendClasses.SOM import SOM
-from backendClasses.Testing import Testing
-from backendClasses.Autoencoder import Autoencoder
-from backendClasses.Pyod import Pyod
-from db import get_db
-from backendClasses.Evaluation import Evaluation
+from .backendClasses.DQTestToolHelper import DQTestToolHelper
+from .backendClasses.DataCollection import DataCollection
+from .backendClasses.PatternDiscovery import PatternDiscovery
+from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from .backendClasses.SklearnRandomForest import SklearnRandomForest
+from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from .backendClasses.H2oRandomForest import H2oRandomForest
+from .backendClasses.H2oKmeans import H2oKmeans
+from .backendClasses.SOM import SOM
+from .backendClasses.Testing import Testing
+from .backendClasses.Autoencoder import Autoencoder
+from .backendClasses.Pyod import Pyod
+from .db import get_db
+from .backendClasses.Evaluation import Evaluation
 #####################################################
 import datetime
 import os
@@ -114,8 +114,18 @@ def validate():
         #maxInvalidityScoreOfNormalData=[]
         if numberOfClusters:
             for i in range(int(numberOfClusters)):
+                #TODO: update based on the id of records in that group
+                #
+                print("*****************")
+                print(request.form.get("group0"))
+                print(request.form.get("group1"))
+                group_table = pd.read_html(request.form.get("group"+str(i)))
+                print("group table")
+                print(group_table)
 
-                if str(i) in request.form.getlist('Group'):
+
+                #
+                if str(i) in request.form.getlist('Group_suspicious'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     TP_T+=1.0
                     
@@ -127,17 +137,23 @@ def validate():
     faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=10)    
     numberOfClusters=0
     faulty_records_html=[]
-    cluster_scores_fig_url=[]
-    cluster_dt_url=[]
-    cluster_interpretation=[]
-    treeRules=[] 
+    faulty_cluster_scores_fig_url=[]
+    faulty_cluster_dt_url=[]
+    suspicious_records_html=[]
+    suspicious_cluster_scores_fig_url=[]
+    suspicious_cluster_dt_url=[]
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
+        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
     else:
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
     db.commit()
     db.close()
-    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, timeseries_fig_urls=timeseries_fig_urls,cluster_interpretation=cluster_interpretation, treeRules=treeRules)
+    print("faulty records html")
+    print(faulty_records_html)
+    print("suspicious records html")
+    print(suspicious_records_html)
+
+    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

@@ -27,7 +27,7 @@ class DataCollection:
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        #dataFrame=dataFrame.fillna(99999)
+        dataFrame=dataFrame.fillna(-1)
 
         """categoricalColumns=[]
         for column in dataFrame.columns:

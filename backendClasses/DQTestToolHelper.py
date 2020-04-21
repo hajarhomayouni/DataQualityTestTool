@@ -273,14 +273,14 @@ class DQTestToolHelper:
     P=0.0
     #NumRealNormalTimeseries
     N=0.0
-    for timeseriesIndex in range(len(invalidityScores)):
-        timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex] 
-        if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
-            P+=1
-    N=len(invalidityScores)-P
     F1_T=FP_T=FPR_T=TPR_T=0.0
-    #if None means if it is the first time we run the tool or if we are in command line mode
     if constraintDiscoveryMethod=="LSTMAutoencoder":
+        for timeseriesIndex in range(len(invalidityScores)):
+            timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex] 
+            if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
+                P+=1
+        N=len(invalidityScores)-P
+        #if None means if it is the first time we run the tool or if we are in command line mode
         if TP_T is None:
             TP_T=0.0
             for i in faultyTimeseriesIndexes[0]:
@@ -453,7 +453,7 @@ class DQTestToolHelper:
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
 
 
-    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,"",""
+    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url
 
 
    def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold):
@@ -492,8 +492,11 @@ class DQTestToolHelper:
 
     numberOfClusters=i
     faulty_records_html=[]
-    cluster_scores_fig_url=[]
-    cluster_dt_url=[]
+    suspicious_records_html=[]
+    faulty_cluster_scores_fig_url=[]
+    suspicious_cluster_scores_fig_url=[]
+    faulty_cluster_dt_url=[]
+    suspicious_cluster_dt_url=[]
     cluster_interpretation=[]
     treeRules=[]
     
@@ -501,19 +504,17 @@ class DQTestToolHelper:
     #@@@@@@@@@@ Add interpretations to groups@@@@
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #show the suspicious groups as HTML tables
+
     for i in range(int(numberOfClusters)):
         faulty_records=dataFrames[i]
-        faulty_records_html.append(faulty_records.drop(['status'],axis=1).to_html())
         faulty_attributes=dataFrame.columns.values[1:-2]
-        if constraintDiscoveryMethod=="H2O_Autoencoder":
-            cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
-            #X=dataFrame.columns.values[1:-2]
-            X=dataFrame.columns.values[1:-2]
-            Y=cluster_scores.mean().tolist()[1:]
-            cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-            #indicate the attributes with high invalidity score values
-            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,70)]
-            faulty_attributes=X[faulty_attributes_indexes]
+        cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
+        #X=dataFrame.columns.values[1:-2]
+        X=dataFrame.columns.values[1:-2]
+        Y=cluster_scores.mean().tolist()[1:]
+        #indicate the attributes with high invalidity score values
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,70)]
+        faulty_attributes=X[faulty_attributes_indexes]
         
         #Add decision trees
         normalRecordFrame['label']='valid'
@@ -533,9 +534,17 @@ class DQTestToolHelper:
         decisionTreeImageUrls=[]
         for i in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
-        cluster_dt_url.append(decisionTreeImageUrls)
-        treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
-        treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
-        cluster_interpretation.append(tree.interpret(treeCodeLines))
+        if faulty_records['invalidityScore'].max()>=1.0:
+            #confirmed faulty records
+            faulty_records_html.append(faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
+            faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            faulty_cluster_dt_url.append(decisionTreeImageUrls)
+        else:
+            suspicious_records_html.append(faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
+            suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            suspicious_cluster_dt_url.append(decisionTreeImageUrls)
+        #treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
+        #treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
+        #cluster_interpretation.append(tree.interpret(treeCodeLines))
 
-    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules
+    return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url
