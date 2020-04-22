@@ -165,7 +165,7 @@ class LSTMAutoencoder(PatternDiscovery):
     #
     print("window size************")
     print(win_size)
-    overlap=1#int(win_size/2)
+    overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries.to_numpy(),win_size,win_size-overlap,timeseries.columns.values)
     n_features=timeseries.shape[1]
     X = np.array(X)
@@ -199,13 +199,16 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def assignInvalidityScore(self,model, timeseries,labels,win_size):
+    print("labels*********************")
+    print(np.max(labels))
+    print(np.min(labels))
     #difference transform
     """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
-    overlap=1#int(win_size/2)
+    overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     l1,emptyDf=self.temporalize(labels,win_size,win_size-overlap)
     n_features=timeseries.shape[1]
@@ -225,7 +228,7 @@ class LSTMAutoencoder(PatternDiscovery):
     for i in range((X.shape[0])):
         #where ax=0 is per-column, ax=1 is per-row and ax=None gives a grand total
         XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
-        byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)        
+        byRow=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=1)#+np.mean(l1[i])        
         byRow=[i/sum(byRow) for i in byRow]
         mse_timeseries.append(np.square(XWithoutIdAndTime[i]-yhat[i]).max(axis=None))
         maxOfLabels.append(np.max(l1[i]))
@@ -262,7 +265,7 @@ class LSTMAutoencoder(PatternDiscovery):
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
-    overlap=1#int(win_size/2)
+    overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     n_features=timeseries.shape[1]
     X = np.array(X)
@@ -295,7 +298,7 @@ class LSTMAutoencoder(PatternDiscovery):
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
-    overlap=1#int(win_size/2)
+    overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     n_features=timeseries.shape[1]
     X = np.array(X)
@@ -328,7 +331,7 @@ class LSTMAutoencoder(PatternDiscovery):
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
-    overlap=1#int(win_size/2)
+    overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
     n_features=timeseries.shape[1]
     X = np.array(X)

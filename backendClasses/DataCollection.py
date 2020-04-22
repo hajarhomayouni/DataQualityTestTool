@@ -43,7 +43,7 @@ class DataCollection:
             le.fit(data.values)
             dataFrame[col]=le.transform(dataFrame[col])"""
 
-        """for column in dataFrame.columns:
+        for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
                 #1
@@ -58,7 +58,7 @@ class DataCollection:
                 #dataFrame[[column]]=scale(dataFrame[[column]])
                 #5
                 #binarizer=Binarizer(threshold=0.0)
-                #dataFrame[[column]]=binarizer.fit_transform(dataFrame[[column]])"""
+                #dataFrame[[column]]=binarizer.fit_transform(dataFrame[[column]])
 
         print (dataFrame)
         return dataFrame

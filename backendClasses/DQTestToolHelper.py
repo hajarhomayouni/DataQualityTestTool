@@ -88,6 +88,8 @@ class DQTestToolHelper:
         #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
     #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
     y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('suspicious*',0,regex=True)
+    print("y********************")
+    print(y)
     #dataFrameTrainPreprocessed['status']=y
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
@@ -120,6 +122,8 @@ class DQTestToolHelper:
     mse_attributes=[]
     networkError=0.0
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
+        print("y********************")
+        print(y)
         mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed,y,win_size)
         invalidityScores=mse_timeseries
         patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
@@ -311,12 +315,14 @@ class DQTestToolHelper:
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y):
+   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
-    cluster_scores_fig_url=[]
-    timeseries_fig_urls=[]
+    suspicious_records_html=[]
+    faulty_cluster_scores_fig_url=[]
+    suspicious_cluster_scores_fig_url=[]
+    #timeseries_fig_urls=[]
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     """dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
@@ -367,16 +373,23 @@ class DQTestToolHelper:
 
 
     #######################
-    cluster_dt_url=[]
+    faulty_cluster_dt_url=[]
+    suspicious_cluster_dt_url=[]
 
 
     index=0
     for i in faultyTimeseriesIndexes[0]:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
-        faulty_records_html.append(df.to_html())
+        #how can we distinguish faulty from suspicious time series?
+        print("***********df*******************")
+        print(df)
+        print("**************invalidityScores***********")
+        print(invalidityScores)
+        print(invalidityScores[i])
+        #faulty_records_html.append(df.to_html())
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
-        cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+        #cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         """X=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['time']
         Y=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['value']
@@ -391,7 +404,7 @@ class DQTestToolHelper:
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
-        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(index)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
+        db.execute("Update dataRecords_"+datasetId+" set status='suspicious_"+str(i)+ "' where  "+dataFramePreprocessed.columns.values[0]+" in (select "+dataFramePreprocessed.columns.values[0]+ " from suspicious_i_temp_"+datasetId+")")
         db.execute("Drop table suspicious_i_temp_"+datasetId)
         index=index+1
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -443,17 +456,27 @@ class DQTestToolHelper:
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
         decisionTreeImageUrls=[]
-        for i in range(numberOfTrees):
-            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=i))
-        cluster_dt_url.append(decisionTreeImageUrls)
+        for j in range(numberOfTrees):
+            decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
+        #cluster_dt_url.append(decisionTreeImageUrls)
         ###############################################
 
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
+        if invalidityScores[i]>=1.0:
+            faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.to_html(table_id="group"+str(i)))
+            faulty_cluster_dt_url.append(decisionTreeImageUrls)
+            faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+        else:
+            suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.to_html(table_id="group"+str(i)))
+            suspicious_cluster_dt_url.append(decisionTreeImageUrls)
+            suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
 
 
-    return numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url
+
+
+    return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url
 
 
    def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold):
