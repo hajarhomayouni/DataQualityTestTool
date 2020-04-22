@@ -113,18 +113,9 @@ def validate():
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         numberOfClusters=request.form["numberOfClusters"]
         groupIDs=request.form['groupIDs']
-        print("groupIDs*******")
-        print(groupIDs)
-        #maxInvalidityScoreOfNormalData=[]
         if numberOfClusters:
             for i in groupIDs.split(','):
-                print("group number************************")
-                print(i)
-                print( request.form.getlist('Group_suspicious') )
-                print( request.form.getlist('Group_faulty') )
                 if str(i) in request.form.getlist('Group_suspicious')  or str(i) in request.form.getlist('Group_faulty'):
-                    print("i is selected ***********************")
-                    print(str(i))
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     TP_T+=1.0
                     
@@ -148,8 +139,6 @@ def validate():
         groupIDs=','.join(str(x) for x in range(numberOfClusters))
     db.commit()
     db.close()
-    print("faulty timeseries indexes*******")
-    print(list(faultyTimeseriesIndexes[0]))
 
     return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url, groupIDs=groupIDs)
      

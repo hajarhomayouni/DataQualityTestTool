@@ -88,8 +88,6 @@ class DQTestToolHelper:
         #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
     #suspicious is zero because we are deciding based on the expert idea in previous time not based on our idea
     y=dataFrameTrain['status'].replace('valid',-1).replace('invalid',1).replace('actual*',1,regex=True).replace('clean',0).replace('suspicious*',0,regex=True)
-    print("y********************")
-    print(y)
     #dataFrameTrainPreprocessed['status']=y
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     #@@@@@@@@@Train Model@@@@@@@@@@@@@@@@@@@@@@@
@@ -104,8 +102,6 @@ class DQTestToolHelper:
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()           
         model=H2OAutoEncoderEstimator(activation='Tanh', epochs=hyperParameters['epochs'],export_weights_and_biases=True, quiet_mode=False,hidden=hyperParameters['hidden'], categorical_encoding="auto", standardize=True)#,hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
-        #patternDiscovery=Pyod()
-        #model=pyod.models.auto_encoder.AutoEncoder(hidden_neurons=[3,3], epochs=10,preprocessing=True)
         bestConstraintDiscoveryModel=patternDiscovery.tuneAndTrain(model,dataFrameTrainPreprocessed)
     elif constraintDiscoveryMethod=="LSTM":
         patternDiscovery=LSTM()
@@ -380,27 +376,8 @@ class DQTestToolHelper:
     index=0
     for i in faultyTimeseriesIndexes[0]:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
-        #how can we distinguish faulty from suspicious time series?
-        print("***********df*******************")
-        print(df)
-        print("**************invalidityScores***********")
-        print(invalidityScores)
-        print(invalidityScores[i])
-        #faulty_records_html.append(df.to_html())
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
-        #cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        """X=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['time']
-        Y=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]['value']
-        print("dataFrameTimeseries")
-        print(dataFrameTimeseries)
-        print("X")
-        print(X)
-        print("Y")
-        print(Y)
-        timeseries_fig_urls.append(dataCollection.build_graph(X,Y))"""
-        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
@@ -410,12 +387,6 @@ class DQTestToolHelper:
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        #uncomment for DT
-        #Can you replace following three lines of code by directly selecting partial falty frame from the timeseries feature?
-        """partialFaultyTimeseries=pd.DataFrame(data=[i],columns=["timeseriesId"])
-        partialFaultyTimeseries["label"]=1"""
-        ###############################################
-        #approach2: tsfeatures from oddstream
         faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
         df_attributes=pd.DataFrame()
         faultyFeatures=tsFeatures.extract_features(faultyFrame)
@@ -425,11 +396,6 @@ class DQTestToolHelper:
             data=np.array(attribute_features)
             df_attribute=pd.DataFrame(data=data[None],columns=cols)
             df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
-
-            #df_attributes['label']=1
-            #df_attributes['timeseriesId']=i
-            #df_attributes.assign(label=[0])
-            #df_attributes.assign(timeseriesId=[i])
             attribute_index+=1
         df_attributes.insert(loc=len(df_attributes.columns), column='label', value=1)
         df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
@@ -439,11 +405,9 @@ class DQTestToolHelper:
 
         ###############################################
 
-        #faultyFrame=pd.merge(timeseriesFeatures,partialFaultyTimeseries, on='timeseriesId')
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
 
 
-        #decisionTreeTrainingFramePreprocessed=dataCollection.preprocess(decisionTreeTrainingFrame)
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
@@ -458,7 +422,6 @@ class DQTestToolHelper:
         decisionTreeImageUrls=[]
         for j in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
-        #cluster_dt_url.append(decisionTreeImageUrls)
         ###############################################
 
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)

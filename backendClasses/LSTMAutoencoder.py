@@ -199,9 +199,6 @@ class LSTMAutoencoder(PatternDiscovery):
 
 
  def assignInvalidityScore(self,model, timeseries,labels,win_size):
-    print("labels*********************")
-    print(np.max(labels))
-    print(np.min(labels))
     #difference transform
     """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
