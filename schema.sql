@@ -8,13 +8,17 @@ CREATE TABLE scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dataset_id TEXT,
   time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  previously_detected float,
-  suspicious_detected float,
-  undetected float,
-  newly_detected float,
-  true_negative_rate float,
-  false_negative_rate float,
-  false_positive_rate Float,
-  true_positive_rate Float
+  HP TEXT,
+  Loss float,
+  PD float,
+  SD float,
+  F1 float,
+  UD float,
+  ND float,
+  FPR Float,
+  TPR Float,
+  TPR_T Float,
+  FPR_T Float,
+  F1_T Float
 );
 

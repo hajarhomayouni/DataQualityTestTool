@@ -1,26 +1,27 @@
+#require a dot before name if running with flask####
+from backendClasses.DQTestToolHelper import DQTestToolHelper
+from backendClasses.DataCollection import DataCollection
+from backendClasses.PatternDiscovery import PatternDiscovery
+from backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from backendClasses.SklearnRandomForest import SklearnRandomForest
+from backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from backendClasses.H2oRandomForest import H2oRandomForest
+from backendClasses.H2oKmeans import H2oKmeans
+from backendClasses.SOM import SOM
+from backendClasses.Testing import Testing
+from backendClasses.Autoencoder import Autoencoder
+from backendClasses.Pyod import Pyod
+from db import get_db
+from backendClasses.Evaluation import Evaluation
+#####################################################
+import datetime
 import os
-from .backendClasses.DQTestToolHelper import DQTestToolHelper
 from random import *
 import functools
-from .backendClasses.DataCollection import DataCollection
-from .backendClasses.PatternDiscovery import PatternDiscovery
-from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from .backendClasses.SklearnRandomForest import SklearnRandomForest
-from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from .backendClasses.H2oRandomForest import H2oRandomForest
-from .backendClasses.H2oKmeans import H2oKmeans
-from .backendClasses.SOM import SOM
-from .backendClasses.Testing import Testing
 import h2o
 import numpy as np
-from .backendClasses.Autoencoder import Autoencoder
-from .backendClasses.Pyod import Pyod
 from h2o.estimators.deeplearning import H2OAutoEncoderEstimator
 import pandas as pd
-#from DataQualityTestTool.db import get_db
-from .db import get_db
-from .backendClasses.Evaluation import Evaluation
-import datetime
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for
@@ -88,11 +89,16 @@ def validate():
     dataCollection=DataCollection()
     testing=Testing()
     #
+    if constraintDiscoveryMethod=="H2O_Autoencoder":
+        hyperParameters={'hidden': [100], 'epochs': 5}
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        hyperParameters={"win_size=None"}
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
     dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)    
     AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
+    TP_T=0.0
     #
     if request.method == "POST":
         #select actual faluts from previous run before updating the database - we need this information to measure the false negative rate
@@ -111,14 +117,27 @@ def validate():
 
                 if str(i) in request.form.getlist('Group'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
+                    TP_T+=1.0
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
                     #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
-
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame)    
-    numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,bestModelFileName)
-    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, cluster_interpretation=cluster_interpretation, treeRules=treeRules, bestModelFile='/static/model/'+bestModelFileName)
+        
+    
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=10)    
+    numberOfClusters=0
+    faulty_records_html=[]
+    cluster_scores_fig_url=[]
+    cluster_dt_url=[]
+    cluster_interpretation=[]
+    treeRules=[] 
+    if constraintDiscoveryMethod=="LSTMAutoencoder":
+        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
+    else:
+        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
+    db.commit()
+    db.close()
+    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, timeseries_fig_urls=timeseries_fig_urls,cluster_interpretation=cluster_interpretation, treeRules=treeRules)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():
@@ -126,6 +145,8 @@ def evaluation():
     datasetId=request.args.get('datasetId')
     evaluation=Evaluation()
     score=pd.read_sql(sql="SELECT * FROM scores where dataset_id like '"+datasetId+"'", con=db)    
+    print ("****score")
+    print(score)
     #A
     suspiciousRecords=pd.read_sql(sql="SELECT distinct * FROM dataRecords_"+datasetId+" where status like 'suspicious_%' or status like 'actualFaults_%'", con=db)
     A=set(suspiciousRecords[suspiciousRecords.columns.values[0]].astype(str).tolist())

@@ -24,14 +24,14 @@ class Evaluation:
 
     @staticmethod
     def truePositiveGrowthRate(score):
-        beginingTPR=score['true_positive_rate'].iloc[0]
-        endingTPR=score['true_positive_rate'].iloc[-1]
-        NR=float(len(score['true_positive_rate'].tolist()))
+        beginingTPR=score['TPR'].iloc[0]
+        endingTPR=score['TPR'].iloc[-1]
+        NR=float(len(score['TPR'].tolist()))
         return ((endingTPR/beginingTPR)**(1/NR))-1
     
     @staticmethod
     def numberOfRuns(score):
-        return float(len(score['true_positive_rate'].tolist()))
+        return float(len(score['TPR'].tolist()))
 
     @staticmethod
     def truePositiveRate(A, TF):

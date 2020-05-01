@@ -51,7 +51,6 @@ pip install keras<br/>
 pip install --upgrade tensorflow<br/>
 pip install flask<br/>
 pip install graphviz<br/>
-pip install sklearn<br/>
 
 **Update H2o jar path**</br>
 Download h2o.jar that is compatible with your h2o version <br/>
@@ -103,15 +102,9 @@ source venv/bin/activate <br/>
 *For csh, tcsh*:</br>
 source venv/bin/activate.csh <br/>
 
-**Set the database path in testScript.py**<br/>
-db=sqlite3.connect("<absolute_path_to>/dq.sqlite")<br/>
-
-*Note*: You can find the full path to your database when you initialize the database:<br/>
-flask init-db<br/>
-
-**Run the testScript.py with appropriate arguments**<br/>
+**Run the testScriptInteractive.py with appropriate arguments**<br/>
 *Run the following command inside the project directory:*<br/>
-python testScript.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
+python testScriptInteractive.py <data_records_file_path>  <trained_model_file_path>  <known_faults_file_path>  <constraint_discovery_method> <br/>
 
 *where*<br/>
 *data_records_file_path* should be set to path to your data file in CSV format </br>
@@ -119,7 +112,7 @@ python testScript.py <data_records_file_path>  <trained_model_file_path>  <known
 *known_faults_file_path* should be set to path to the CSV file that stores IDs of previously known faulty records <br/>
 *constraint_discovery_method* should be set to the model you want to use for constraint discovery (H2O_Autoencoder)<br/>
 
-*Example*: python testScript.py "breastCancer.csv" "" "breastCancer_outliers.csv" "H2O_Autoencoder" <br/>
+*Example*: python testScriptInteractive.py "breastCancer.csv" "" "breastCancer_outliers.csv" "H2O_Autoencoder" <br/>
 
 *Note*: The first column of your CSV data file should be a unique ID </br>
 
@@ -132,7 +125,7 @@ python testScript.py <data_records_file_path>  <trained_model_file_path>  <known
 *AF_new*: Set of faults detected in the current run <br/>
 *NR*: Number of runs <br/>
 
-The script measures the follwoing values for 10 runs of tool for the input CSV data and stores (overwrites) the results in scores.csv <br/>
+The script measures the follwoing values for 10 runs of tool for the input CSV data and stores the results in scores.csv <br/>
 *True Positive Rate (TPR)*: |AF|/|A|</br>
 *True Positive Growth Rate (TPGR)*: ((lastTPR/firstTPR)^(1/NR))-1</br>
 *Previously Detected faulty records (PD)*: |E^A|/|E|</br> 

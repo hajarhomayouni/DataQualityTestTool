@@ -10,6 +10,8 @@ from .DataCollection import DataCollection
 class H2oRandomForest(Interpretation):
     @staticmethod
     def train(trainDataFrame, featuresList, target):
+        #h2o.shutdown()
+        #h2o.connect()
         h2o.init()
         fl1=list(featuresList)
         fl=fl1+[target]
@@ -27,7 +29,7 @@ class H2oRandomForest(Interpretation):
     def visualize(self,model,featuresList, targetValues, tree_id=0):
         randName=str(random.randint(1,100000000))
         mojo_file_name = "./static/mojo/mojo_"+randName+".zip"
-        h2o_jar_path= './venv2/lib/python3.6/site-packages/h2o/h2o.jar'
+        h2o_jar_path= './venv3/lib/python3.6/site-packages/h2o/h2o.jar'
         mojo_full_path = mojo_file_name
         gv_file_path = "./static/mojo/gv_"+randName+".gv"
         image_file_path="./static/images/img_"+randName+".png"
@@ -39,6 +41,8 @@ class H2oRandomForest(Interpretation):
 
     def generateGraphviz(self,h2o_jar_path, mojo_full_path, gv_file_path, image_file_path, tree_id = 0):
         result = subprocess.call(["java", "-cp", h2o_jar_path, "hex.genmodel.tools.PrintMojo", "--tree", str(tree_id), "-i", mojo_full_path , "-o", gv_file_path ], shell=False)
+        print("shell command*************************************")
+        print ("java"+ "-cp"+ h2o_jar_path + "hex.genmodel.tools.PrintMojo" +"--tree"+ str(tree_id)+ "-i"+ mojo_full_path + "-o", gv_file_path)
         result = subprocess.call(["ls",gv_file_path], shell = False)
         if result is 0:
             print("Success: Graphviz file " + gv_file_path + " is generated.")
