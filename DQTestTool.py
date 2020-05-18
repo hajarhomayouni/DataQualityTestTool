@@ -93,6 +93,7 @@ def validate():
         hyperParameters={'hidden': [100], 'epochs': 5}
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         hyperParameters={"win_size=None"}
+
     numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious%'",con=db)
     numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
     suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious%'", con=db)
@@ -111,33 +112,35 @@ def validate():
         #@@@@@@@@@@@@@@Incorporate domain knowledge@@@@@@@@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         numberOfClusters=request.form["numberOfClusters"]
-        #maxInvalidityScoreOfNormalData=[]
+        groupIDs=request.form['groupIDs']
         if numberOfClusters:
-            for i in range(int(numberOfClusters)):
-
-                if str(i) in request.form.getlist('Group'):
+            for i in groupIDs.split(','):
+                if str(i) in request.form.getlist('Group_suspicious')  or str(i) in request.form.getlist('Group_faulty'):
                     db.execute("Update dataRecords_"+datasetId+" set  status='actualFaults_"+str(i)+ "' where status='suspicious_"+str(i)+"'")
                     TP_T+=1.0
                     
                 else:
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
-                    #db.execute("Update dataRecords_"+datasetId+" set  status='clean' where status='suspicious_"+str(i)+"'")
         
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=None)    
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=10)   
     numberOfClusters=0
     faulty_records_html=[]
-    cluster_scores_fig_url=[]
-    cluster_dt_url=[]
-    cluster_interpretation=[]
-    treeRules=[] 
+    faulty_cluster_scores_fig_url=[]
+    faulty_cluster_dt_url=[]
+    suspicious_records_html=[]
+    suspicious_cluster_scores_fig_url=[]
+    suspicious_cluster_dt_url=[]
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,timeseries_fig_urls,cluster_interpretation,treeRules=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores)
+        groupIDs=','.join(str(x) for x in list(faultyTimeseriesIndexes[0]))
     else:
-        numberOfClusters,faulty_records_html,cluster_scores_fig_url,cluster_dt_url,cluster_interpretation,treeRules=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
+        groupIDs=','.join(str(x) for x in range(numberOfClusters))
     db.commit()
     db.close()
-    return render_template('validate.html', data='@'.join(faulty_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, fig_urls=cluster_scores_fig_url,cluster_dt_url=cluster_dt_url, timeseries_fig_urls=timeseries_fig_urls,cluster_interpretation=cluster_interpretation, treeRules=treeRules)
+
+    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url, groupIDs=groupIDs)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

@@ -27,7 +27,7 @@ class DataCollection:
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        #dataFrame=dataFrame.fillna(99999)
+        dataFrame=dataFrame.fillna(-1)
 
         """categoricalColumns=[]
         for column in dataFrame.columns:
@@ -47,7 +47,7 @@ class DataCollection:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
                 #1
-                min_max=MinMaxScaler(feature_range=(-1, 1))
+                min_max=MinMaxScaler(feature_range=(0, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
                 #2
                 #dataFrame[[column]]=preprocessing.normalize(dataFrame[[column]], norm='l1',axis=1)
@@ -112,7 +112,7 @@ class DataCollection:
         img = io.BytesIO()
         #plt.xticks(rotation=45)
         #plt.tick_params(labelsize=1)
-        plt.rcParams.update({'font.size': 5})
+        plt.rcParams.update({'font.size': 15})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
         plt.plot(x_coordinates, y_coordinates,'o')

@@ -8,22 +8,32 @@
   <p style=>
   <label for="description"> Please select the groups that are actually faulty. </br> Press revalidate to improve the fault detection approach. </br> </label>
   </p>
-  <a href="https://tsfresh.readthedocs.io/en/latest/text/list_of_features.html" >Time series features explanation </a>
+  <!--<a href="https://tsfresh.readthedocs.io/en/latest/text/list_of_features.html" >Time series features explanation </a>-->
   <p> <!--style="border:3px; border-style: solid;  border-color:#FFA07A; "-->
     <label for="numberOfClusters">Number of groups:</label>
     <input name="numberOfClusters" id="numberOfClusters" value="{{numberOfClusters}}"/>
+    <label for="groupIDs">Group IDs:</label>
+    <input name="groupIDs" id="groupIDs" value="{{groupIDs}}"/>
     </br>
-    {%for item in data.split('@')%}
-	    <label for="group">Group_{{loop.index0}}</label>
-	    <input type="checkbox" name="Group" value="{{loop.index0}}"/> </br>
-	    <img src='{{fig_urls[loop.index0]}}' align="left" ></img></br>
-	    {%for image in cluster_dt_url[loop.index0] %}
+    <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
+    <strong>Confirmed Faulty Groups</strong>
+    </p>
+    {%for item in faulty_data.split('@')%}
+	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="faulty_group">{{ item | safe }}</div></br>
+	    <img src='{{faulty_fig_urls[loop.index0]}}' align="left" ></img></br>
+	    {%for image in faulty_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
-	    {%for image in timeseries_fig_urls[loop.index0] %}
+    {% endfor %}
+    <p style="border:3px; border-style: solid;  border-color:#FFA07A; ">
+    <strong>Suspicious Groups</strong>
+    </p>
+    {%for item in suspicious_data.split('@')%}
+	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="suspicious_group">{{ item | safe }}</div></br>
+	    <img src='{{suspicious_fig_urls[loop.index0]}}' align="left" ></img></br>
+	    {%for image in suspicious_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
-	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;">{{ item | safe }}</div></br>
     {% endfor %}
     <input type="submit" name="revalidate" value="revalidate"></br></br>
     <a href="{{bestModelFile}}" target="blank">save model</a>
