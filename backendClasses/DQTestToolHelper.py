@@ -118,11 +118,11 @@ class DQTestToolHelper:
     mse_attributes=[]
     networkError=0.0
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
-        print("y********************")
-        print(y)
-        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,dataFramePreprocessed,y,win_size)
+        timeseries_raw=dataFrame.drop(['invalidityScore','status'], axis=1)
+        timeseries=dataFramePreprocessed
+        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,timeseries,timeseries_raw,y,win_size)
         invalidityScores=mse_timeseries
-        patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
+        #patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
         inalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel, dataFramePreprocessed)
     else:
@@ -407,7 +407,6 @@ class DQTestToolHelper:
 
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
 
-
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
@@ -427,6 +426,10 @@ class DQTestToolHelper:
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
+        #
+        #df['time'] =  pd.to_datetime(df['time'], format='%d%b%Y:%H:%M:%S.%f')
+        #
+
         if invalidityScores[i]>=1.0:
             faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.to_html(table_id="group"+str(i)))
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
@@ -492,8 +495,6 @@ class DQTestToolHelper:
     #show the suspicious groups as HTML tables
 
     for i in range(int(numberOfClusters)):
-        print("i*****************")
-        print(i)
         faulty_records=dataFrames[i]
         faulty_attributes=dataFrame.columns.values[1:-2]
         cluster_scores=invalidityScoresPerFeature.loc[invalidityScoresPerFeature[dataFrame.columns.values[0]].isin(faulty_records[dataFrame.columns.values[0]])]
@@ -523,13 +524,11 @@ class DQTestToolHelper:
         for j in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
         if faulty_records['invalidityScore'].max()>=1.0:
-            print(i)
             #confirmed faulty records
             faulty_records_html.append('<label for="group">Group_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
             faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
         else:
-            print(i)
             suspicious_records_html.append('<label for="group">Group_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+faulty_records.drop(['status','label'],axis=1).to_html(table_id="group"+str(i)))
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)

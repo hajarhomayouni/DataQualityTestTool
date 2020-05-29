@@ -128,8 +128,6 @@ class LSTMAutoencoder(PatternDiscovery):
      #exclude first two columns which are id and time
      for column in dataFrameTimeseries.columns.values[2:]:
          acf, confint=statsmodels.tsa.stattools.acf(dataFrameTimeseries[column], unbiased=True, nlags=100, qstat=False, fft=True, alpha=.05, missing='drop')
-         print("acf*******")
-         print(acf)
          MSE[column]=np.mean(acf)
          lag_ac=1
          for i in range(2,101):
@@ -198,19 +196,25 @@ class LSTMAutoencoder(PatternDiscovery):
     return model,dataFrameTimeseries
 
 
- def assignInvalidityScore(self,model, timeseries,labels,win_size):
+ def assignInvalidityScore(self,model, timeseries,dataFrame,labels,win_size):
     #difference transform
     """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
     timeseries=timeseries.to_numpy()
+    dataFrame=dataFrame.to_numpy()
+
+
     overlap=0#int(win_size/2)
     X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
+    X_raw,notuseful=self.temporalize(dataFrame,win_size,win_size-overlap)
     l1,emptyDf=self.temporalize(labels,win_size,win_size-overlap)
     n_features=timeseries.shape[1]
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
+    X_raw = np.array(X_raw)
+    X_raw = X_raw.reshape(X_raw.shape[0], win_size, n_features)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
     """print("test***************")
     test=np.delete(X,[0,1],axis=2)[0:1]
@@ -234,127 +238,15 @@ class LSTMAutoencoder(PatternDiscovery):
         mse_attribute=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=0)
         mse_attributes.append(mse_attribute)
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
-        XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
+        XWithInvalidityScores.append(np.concatenate((X_raw[i],byRowArr.T),axis=1))
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
     mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
 
     #mse_records=normalize(mse_records, axis=1, norm='l1')
     #mse_attributes=normalize(mse_attributes, axis=0, norm='l1')
     
-    #find_LSbs_approach 4:
-    mse=np.mean(mse_attributes, axis=0)
-    MSE={ i : mse[i] for i in range(0, len(mse) ) }
-    sorted_MSE=sorted(MSE.items(), key=lambda x: x[1])
-    print("LSbs based on reconstruction error per bit************************")
-    print(mse)
-    print(np.mean(mse))
-    print("******sorted****************")
-    print(sorted_MSE)
-    #
     return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
 
     
- def findLsbs_1(self,model, timeseries,win_size):
-    #This method finds LSbs based on randomizing LSBs together
-    #difference transform
-    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
-    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-(interval+1))"""
-    #
-    timeseries=timeseries.to_numpy()
-    overlap=0#int(win_size/2)
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
-    n_features=timeseries.shape[1]
-    X = np.array(X)
-    X = X.reshape(X.shape[0], win_size, n_features)
-    XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
-
-    testArray=np.copy(XWithoutIdAndTime)
-    MSE=[]
-    for i in range(1,7):
-        pos=8-i
-        random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],7-pos+1))
-        testArray[:,:,pos:8]=random_binary_matrix
-        
-        yhat = model.predict(testArray, verbose=1)
-        loss = model.evaluate(testArray, testArray, verbose=1)
-
-        mse=np.square(testArray-yhat).mean(axis=1)        
-        mse=np.mean(mse)
-        MSE.append(mse)
-
-    print("mse*************************************")
-    print(MSE)
-    return MSE
-
- def findLsbs_2(self,model, timeseries,win_size):
-    #This method finds LSbs based on randomizing LSBs one by one
-    #difference transform
-    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
-    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-(interval+1))"""
-    #
-    timeseries=timeseries.to_numpy()
-    overlap=0#int(win_size/2)
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
-    n_features=timeseries.shape[1]
-    X = np.array(X)
-    X = X.reshape(X.shape[0], win_size, n_features)
-    XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
-
-    MSE=[]
-    for i in range(1,7):
-        testArray=np.copy(XWithoutIdAndTime)
-        pos=8-i
-        random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],1))
-        testArray[:,:,pos:pos+1]=random_binary_matrix
-        
-        yhat = model.predict(testArray, verbose=1)
-        loss = model.evaluate(testArray, testArray, verbose=1)
-
-        mse=np.square(testArray-yhat).mean(axis=1)        
-        mse=np.mean(mse)
-        MSE.append(mse)
-
-    print("mse*************************************")
-    print(MSE)
-    return MSE
-
- def findLsbs_3(self,model, timeseries,win_size):
-    #This method finds LSbs based on randomizing all bits one by one
-    #difference transform
-    """diff, interval= self.difference(timeseries.drop([timeseries.columns.values[0], timeseries.columns.values[1]], axis=1))
-    timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
-    timeseries=timeseries.head(len(diff)-(interval+1))"""
-    #
-    timeseries=timeseries.to_numpy()
-    overlap=0#int(win_size/2)
-    X,dataFrameTimeseries=self.temporalize(timeseries,win_size,win_size-overlap)
-    n_features=timeseries.shape[1]
-    X = np.array(X)
-    X = X.reshape(X.shape[0], win_size, n_features)
-    XWithoutIdAndTime=np.delete(X,[0,1],axis=2)
-
-    MSE={}
-    mses=[]
-    for i in range(0,16):
-        testArray=np.copy(XWithoutIdAndTime)
-        pos=i
-        random_binary_matrix = np.random.randint(0,2,size=(testArray.shape[0],testArray.shape[1],1))
-        testArray[:,:, pos:pos+1]=random_binary_matrix
-        
-        yhat = model.predict(testArray, verbose=0)
-
-        mse=np.square(testArray-yhat).mean(axis=1)        
-        mse=np.mean(mse)
-        MSE['b'+str(i)]=mse
-        mses.append(mse)
-    print("LSbs based on reconstruction error of mutated data*************************************")
-    print(mses)
-    print(np.mean(mse))
-    print("******sorted****************")
-    sorted_MSE=sorted(MSE.items(), key=lambda x: x[1])
-    print(sorted_MSE)
-    return MSE
 
 

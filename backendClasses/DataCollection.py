@@ -27,27 +27,21 @@ class DataCollection:
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(-1)
+        dataFrame=dataFrame.fillna(9999)
 
-        """categoricalColumns=[]
-        for column in dataFrame.columns:
-            if dataFrame[column].dtype != np.number:
-                dataFrame[column]=dataFrame[column].apply(hash)
-            if all(float(x).is_integer() for x in dataFrame[column]):
-                categoricalColumns.append(column)            
-
-
-        le=LabelEncoder()
+        """categoricalColumns=self.findCategorical(dataFrame)
+        print(categoricalColumns)
+        le=OneHotEncoder()
         for col in categoricalColumns:
             data=dataFrame[col]
-            le.fit(data.values)
+            le.fit(data)
             dataFrame[col]=le.transform(dataFrame[col])"""
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
                 #1
-                min_max=MinMaxScaler(feature_range=(0, 1))
+                min_max=MinMaxScaler(feature_range=(-1, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
                 #2
                 #dataFrame[[column]]=preprocessing.normalize(dataFrame[[column]], norm='l1',axis=1)
@@ -70,10 +64,9 @@ class DataCollection:
         categorical_columns=[]
         for column in df_data.columns.values:
             if self.is_number(df_data.iloc[1][column])==False:
-                i#df_data[column]=df_data[column].apply(hash)
                 categorical_columns.append(column)
-            elif all(float(x).is_integer() for x in df_data[column]):
-                categorical_columns.append(column)
+            """elif all(float(x).is_integer() for x in df_data[column]):
+                categorical_columns.append(column)"""
         return categorical_columns
     
     def is_number(self,s):
