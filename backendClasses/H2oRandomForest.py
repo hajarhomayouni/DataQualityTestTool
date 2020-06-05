@@ -41,8 +41,6 @@ class H2oRandomForest(Interpretation):
 
     def generateGraphviz(self,h2o_jar_path, mojo_full_path, gv_file_path, image_file_path, tree_id = 0):
         result = subprocess.call(["java", "-cp", h2o_jar_path, "hex.genmodel.tools.PrintMojo", "--tree", str(tree_id), "-i", mojo_full_path , "-o", gv_file_path ], shell=False)
-        print("shell command*************************************")
-        print ("java"+ "-cp"+ h2o_jar_path + "hex.genmodel.tools.PrintMojo" +"--tree"+ str(tree_id)+ "-i"+ mojo_full_path + "-o", gv_file_path)
         result = subprocess.call(["ls",gv_file_path], shell = False)
         if result is 0:
             print("Success: Graphviz file " + gv_file_path + " is generated.")
