@@ -163,15 +163,14 @@ class DQTestToolHelper:
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
             faultyThresholdRecords=np.percentile(invalidityScoresPerRecord, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
             totalNumOfTimeseries=len(dataFrame)/win_size
-            """minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
+            minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
             maxOfNumOfFaultyGroups=numberOfKnownFaults
             meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
             numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
             if numOfGroupsToBeReported>=totalNumOfTimeseries:
                 numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
             elif numberOfKnownFaults<win_size:
-                numOfGroupsToBeReported=3"""
-            numOfGroupsToBeReported=2#316#43
+                numOfGroupsToBeReported=3
             faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
 
 
@@ -446,9 +445,7 @@ class DQTestToolHelper:
         faultyFrame=faultyFrame.replace(np.inf, 0)
 
         ###############################################
-
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
-
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
@@ -468,9 +465,6 @@ class DQTestToolHelper:
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
-        #
-        #df['time'] =  pd.to_datetime(df['time'], format='%d%b%Y:%H:%M:%S.%f')
-        #
 
         if invalidityScores[i]>=1.0:
             faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.to_html(table_id="group"+str(i)))
@@ -480,9 +474,6 @@ class DQTestToolHelper:
             suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.to_html(table_id="group"+str(i)))
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-
-
-
 
     return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url
 
