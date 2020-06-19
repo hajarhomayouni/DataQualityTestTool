@@ -14,7 +14,8 @@ dQTestToolHelper=DQTestToolHelper()
 datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trainedModelFilePath=sys.argv[2],knownFaultsFilePath=sys.argv[3])
 #
 #hyperParameters={'hidden': [100,100], 'epochs': 5}
-hyperParameters={'win_size=None'}
+win_size=None
+hyperParameters={'win_size='+str(win_size)}
 numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious'",con=db)
 numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
 suspiciousDataFrame=pd.read_sql(sql="select * from dataRecords_"+datasetId+" where status like 'suspicious'", con=db)

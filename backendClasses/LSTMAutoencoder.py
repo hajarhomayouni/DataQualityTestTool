@@ -81,8 +81,8 @@ class LSTMAutoencoder(PatternDiscovery):
   #remove linear trend
   diff=dataset.diff(periods=-1)
   #find period length to initialize interval
-  interval=self.freq_zero_crossing(dataset)
-  #interval=self.freq_peaks(dataset.to_numpy().ravel())
+  #interval=self.freq_zero_crossing(dataset)
+  interval=self.freq_peaks(dataset.to_numpy().ravel())
   #remove seasonality
   diff=diff.diff(periods=-interval)
   print("interval*******")
@@ -140,8 +140,8 @@ class LSTMAutoencoder(PatternDiscovery):
          lag_acs.append(lag_ac)
          if lag_ac>win_size:
              win_size=lag_ac
-         if win_size<10:
-             win_size=10
+         """if win_size<10:
+             win_size=10"""
 
      #return (int)(statistics.mean(win_sizes_of_columns))
      """print("autocorrelations**************")
@@ -178,10 +178,11 @@ class LSTMAutoencoder(PatternDiscovery):
     model.add(TimeDistributed(Dense(n_features-2)))
     """def custom_loss(y_true,y_pred):
         return K.max(K.square(y_pred - y_true))"""
-    model.compile(optimizer='adam', loss="mse")
+    opt = keras.optimizers.Adam(lr=0.01)
+    model.compile(optimizer=opt, loss="mse")
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=100,batch_size=X.shape[0], verbose=1)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=500,batch_size=X.shape[0], verbose=1)
     """print("Model Weights*******************")
     for layer in model.layers:
         g=layer.get_config()
