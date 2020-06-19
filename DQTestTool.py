@@ -1,18 +1,18 @@
 #require a dot before name if running with flask####
-from backendClasses.DQTestToolHelper import DQTestToolHelper
-from backendClasses.DataCollection import DataCollection
-from backendClasses.PatternDiscovery import PatternDiscovery
-from backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from backendClasses.SklearnRandomForest import SklearnRandomForest
-from backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from backendClasses.H2oRandomForest import H2oRandomForest
-from backendClasses.H2oKmeans import H2oKmeans
-from backendClasses.SOM import SOM
-from backendClasses.Testing import Testing
-from backendClasses.Autoencoder import Autoencoder
-from backendClasses.Pyod import Pyod
-from db import get_db
-from backendClasses.Evaluation import Evaluation
+from .backendClasses.DQTestToolHelper import DQTestToolHelper
+from .backendClasses.DataCollection import DataCollection
+from .backendClasses.PatternDiscovery import PatternDiscovery
+from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from .backendClasses.SklearnRandomForest import SklearnRandomForest
+from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from .backendClasses.H2oRandomForest import H2oRandomForest
+from .backendClasses.H2oKmeans import H2oKmeans
+from .backendClasses.SOM import SOM
+from .backendClasses.Testing import Testing
+from .backendClasses.Autoencoder import Autoencoder
+from .backendClasses.Pyod import Pyod
+from .db import get_db
+from .backendClasses.Evaluation import Evaluation
 #####################################################
 import datetime
 import os
@@ -123,7 +123,7 @@ def validate():
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
         
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=None)   
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=None)   
     numberOfClusters=0
     faulty_records_html=[]
     faulty_cluster_scores_fig_url=[]
@@ -132,7 +132,7 @@ def validate():
     suspicious_cluster_scores_fig_url=[]
     suspicious_cluster_dt_url=[]
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords)
         groupIDs=','.join(str(x) for x in list(faultyTimeseriesIndexes[0]))
     else:
         numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
