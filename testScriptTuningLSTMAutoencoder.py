@@ -25,6 +25,9 @@ window_size = {"win_size:10" : 10, "win_size:20" : 20, "win_size:30" : 30, "win_
 windows_size_keys = list(window_size.keys())
 windows_size_values = list(window_size.values()) 
 
+#
+faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,win_size=10)    
+
 #Results will store all the F1_T values for different window sizes difined above
 results = []
 dataset_index=0

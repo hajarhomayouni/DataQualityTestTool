@@ -33,13 +33,19 @@ from tsfresh import select_features,extract_features
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_relevant_features
 import re
-
+import decimal
 
 class DQTestToolHelper:
-    
+   
+   def highlight_greaterthan(self,s,threshold,column):
+    is_max = pd.Series(data=False, index=s.index)
+    is_max[column] = s.loc[column] >= threshold
+    return ['background-color: yellow' if is_max.any() else '' for v in is_max]
+
+   
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(1000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -148,19 +154,29 @@ class DQTestToolHelper:
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
     faultyThreshold=np.percentile(invalidityScores,99.9)        
+    #
+    X=np.array(XWithInvalidityScores)
+    temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
+    cols=dataFrame.columns.values[:-2]
+    cols=np.append(cols,'invalidityScore')
+    #TODO: remove duplicate records based on value of IDs (after merging timeseris into one 2D array)
+    invalidityScoresPerRecord=pd.DataFrame(temp, columns=cols)['invalidityScore']
+    faultyThresholdRecords=np.percentile(invalidityScoresPerRecord,90)    
+    #
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder" or constraintDiscoveryMethod=="LSTM":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
+            faultyThresholdRecords=np.percentile(invalidityScoresPerRecord, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
+            totalNumOfTimeseries=len(dataFrame)/win_size
             minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
             maxOfNumOfFaultyGroups=numberOfKnownFaults
             meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
-            totalNumOfTimeseries=len(dataFrame)/win_size
             numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
             if numOfGroupsToBeReported>=totalNumOfTimeseries:
                 numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
             elif numberOfKnownFaults<win_size:
-                numOfGroupsToBeReported=2
+                numOfGroupsToBeReported=3
             faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
 
 
@@ -270,16 +286,51 @@ class DQTestToolHelper:
     #Calculate scores at group/time series level
     ############################################
     #NumRealFaultyTimeseries
-    P=0.0
+    P_T=0.0
     #NumRealNormalTimeseries
-    N=0.0
+    N_T=0.0
+    #Number of actual faulty records
+    P=len(E)
+    #Number of detected faulty records 
+    a=set()
+    #Number of actual valid records
+    N=len(dataFrame)-P
+    #set of actual valid records
+    n=set(dataFrame[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).difference(E)
+
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in range(len(invalidityScores)):
             timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex] 
+            if timeseriesIndex in faultyTimeseriesIndexes[0]:
+                temp=XWithInvalidityScores[timeseriesIndex]
+                cols=timeseries.columns.values[0:-1]
+                cols=np.append(cols,'invalidityScore')
+                tempdf=pd.DataFrame(temp, columns=cols)
+                #a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= tempdf['invalidityScore'].mean())][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
+                #a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >0)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
+                a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
             if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
-                P+=1
-        N=len(invalidityScores)-P
+                P_T+=1
+        
+        #calculate scores at record level for timeseries      
+        TP=len(a.intersection(E))
+        FP=len(a.intersection(n))
+        FPR=FP/N
+
+        if P>0:
+            TPR=TP/P
+        FNR=1-TPR
+        TNR=1-FPR
+
+        if TPR>0:
+            precision=TPR/(TPR+FPR)
+            recall=TPR/(TPR+FNR)
+            F1=(2*precision*recall)/(precision+recall)
+        #
+
+
+        N_T=len(invalidityScores)-P_T
         #if None means if it is the first time we run the tool or if we are in command line mode
         if TP_T is None:
             TP_T=0.0
@@ -292,14 +343,10 @@ class DQTestToolHelper:
                     FP_T+=1.0
                 db.execute("Drop table faultyTimeseries_i")
             #
-            """UD_ids=E.difference(A)
-            for index in normalTimeseriesIndexes[0]:
-                normalTimeseries_index=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == index] 
-                if len(set(normalTimeseries_index[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(UD_ids))>0:
-                    FN_T+=1"""
-            FPR_T=float(FP_T)/N
-        if P>0:
-            TPR_T=TP_T/P
+            FPR_T=float(FP_T)/N_T
+
+        if P_T>0:
+            TPR_T=TP_T/P_T
         FNR_T=1-TPR_T
         TNR_T=1-FPR_T
 
@@ -308,10 +355,10 @@ class DQTestToolHelper:
         recall_T=TPR_T/(TPR_T+FNR_T)
         F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
     db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,TPR, FPR,TPR_T,FPR_T,F1_T))
-    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
+    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores):
+   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -404,9 +451,7 @@ class DQTestToolHelper:
         faultyFrame=faultyFrame.replace(np.inf, 0)
 
         ###############################################
-
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
-
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
         tree=H2oGradientBoosting()
         if interpretationMethod=="Sklearn Decision Tree":
@@ -426,21 +471,19 @@ class DQTestToolHelper:
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
-        #
-        #df['time'] =  pd.to_datetime(df['time'], format='%d%b%Y:%H:%M:%S.%f')
-        #
+
+        df = df.style.apply(self.highlight_greaterthan,threshold=faultyThresholdRecords,column=['invalidityScore'], axis=1)
+        print(df)
+        
 
         if invalidityScores[i]>=1.0:
-            faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.to_html(table_id="group"+str(i)))
+            faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.render())
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
             faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
         else:
-            suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.to_html(table_id="group"+str(i)))
+            suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.render())
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-
-
-
 
     return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url
 
