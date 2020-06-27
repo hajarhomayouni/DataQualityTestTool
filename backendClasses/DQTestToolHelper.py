@@ -182,15 +182,16 @@ class DQTestToolHelper:
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
             faultyThresholdRecords=np.percentile(invalidityScoresPerRecord, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
             totalNumOfTimeseries=len(dataFrame)/win_size
-            """minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
-            maxOfNumOfFaultyGroups=numberOfKnownFaults
-            meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
-            numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-            if numOfGroupsToBeReported>=totalNumOfTimeseries:
-                numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-            elif numberOfKnownFaults<win_size:
-                numOfGroupsToBeReported=3"""
             numOfGroupsToBeReported=P_T
+            if P_T==0:
+                minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
+                maxOfNumOfFaultyGroups=numberOfKnownFaults
+                meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
+                numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
+                if numOfGroupsToBeReported>=totalNumOfTimeseries:
+                    numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
+                elif numberOfKnownFaults<win_size:
+                    numOfGroupsToBeReported=3
             faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
 
 
