@@ -153,7 +153,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,99.9)        
+    faultyThreshold=np.percentile(invalidityScores,99)        
     #
     X=np.array(XWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
@@ -163,20 +163,35 @@ class DQTestToolHelper:
     invalidityScoresPerRecord=pd.DataFrame(temp, columns=cols)['invalidityScore']
     faultyThresholdRecords=np.percentile(invalidityScoresPerRecord,90)    
     #
+    E=set()
+    knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
+    if not knownFaults.empty:
+        E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
+    #NumRealFaultyTimeseries
+    P_T=0
+    for timeseriesIndex in range(len(invalidityScores)):
+        timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex]
+        if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
+                P_T+=1
+    print("P_T")
+    print(P_T)
+    #
     if numberOfKnownFaults>0:
         if constraintDiscoveryMethod=="H2O_Autoencoder" or constraintDiscoveryMethod=="LSTM":
             faultyThreshold=np.percentile(invalidityScores, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
         elif constraintDiscoveryMethod=="LSTMAutoencoder":
             faultyThresholdRecords=np.percentile(invalidityScoresPerRecord, 100-(100*(float(numberOfKnownFaults)/float(len(dataFrame)))))
             totalNumOfTimeseries=len(dataFrame)/win_size
-            minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
-            maxOfNumOfFaultyGroups=numberOfKnownFaults
-            meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
-            numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-            if numOfGroupsToBeReported>=totalNumOfTimeseries:
+            numOfGroupsToBeReported=P_T
+            if P_T==0:
+                minOfNumOfFaultyGroups=numberOfKnownFaults/win_size
+                maxOfNumOfFaultyGroups=numberOfKnownFaults
+                meanOfNumOfFaultyGroups=(minOfNumOfFaultyGroups+maxOfNumOfFaultyGroups)/2
                 numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
-            elif numberOfKnownFaults<win_size:
-                numOfGroupsToBeReported=3
+                if numOfGroupsToBeReported>=totalNumOfTimeseries:
+                    numOfGroupsToBeReported=minOfNumOfFaultyGroups+1
+                elif numberOfKnownFaults<win_size:
+                    numOfGroupsToBeReported=3
             faultyThreshold=np.percentile(invalidityScores, 100-100*(numOfGroupsToBeReported/totalNumOfTimeseries))
 
 
@@ -248,7 +263,7 @@ class DQTestToolHelper:
     AFdataFrameOldList=[]
     A=set()
     AF=set()
-    E=set()
+    #E=set()
     if not AFdataFrame.empty:
         AFdataFrameList=[str(item) for item in AFdataFrame[dataFrame.columns.values[0]].unique().tolist()]
         TPR=float(len(AFdataFrame[dataFrame.columns.values[0]].unique().tolist()))/float(faultyRecordFrame.shape[0])
@@ -267,9 +282,6 @@ class DQTestToolHelper:
     #A=set(suspiciousDataFrame[suspiciousDataFrame.columns.values[0]].astype(str).tolist())
     A=set(faultyRecordFrame[faultyRecordFrame.columns.values[0]].astype(str).tolist())
     
-    knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
-    if not knownFaults.empty:
-        E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     
     PD=SD=ND=UD=F1=0.0
     if len(A)>0:
@@ -286,7 +298,7 @@ class DQTestToolHelper:
     #Calculate scores at group/time series level
     ############################################
     #NumRealFaultyTimeseries
-    P_T=0.0
+    #P_T=0.0
     #NumRealNormalTimeseries
     N_T=0.0
     #Number of actual faulty records
@@ -300,18 +312,14 @@ class DQTestToolHelper:
 
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        for timeseriesIndex in range(len(invalidityScores)):
-            timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex] 
-            if timeseriesIndex in faultyTimeseriesIndexes[0]:
+        for timeseriesIndex in faultyTimeseriesIndexes[0]:
                 temp=XWithInvalidityScores[timeseriesIndex]
                 cols=timeseries.columns.values[0:-1]
                 cols=np.append(cols,'invalidityScore')
                 tempdf=pd.DataFrame(temp, columns=cols)
-                #a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= tempdf['invalidityScore'].mean())][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
-                #a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >0)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
                 a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
-            if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
-                P_T+=1
+        print("P_T")
+        print(P_T)
         
         #calculate scores at record level for timeseries      
         TP=len(a.intersection(E))
