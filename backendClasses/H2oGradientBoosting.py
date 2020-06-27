@@ -27,7 +27,7 @@ class H2oGradientBoosting(Interpretation):
     def visualize(self,model,featuresList, targetValues):
         randName=str(random.randint(1,100000000))
         mojo_file_name = "./static/mojo/mojo_"+randName+".zip"
-        h2o_jar_path= './venv2/lib/python3.6/site-packages/h2o/h2o.jar'
+        h2o_jar_path= '/s/bach/h/proj/etl/shlok/Spring_20_Test/h2o.jar'
         mojo_full_path = mojo_file_name
         gv_file_path = "./static/mojo/gv_"+randName+".gv"
         image_file_path="./static/images/img_"+randName+".png"
