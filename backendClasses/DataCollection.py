@@ -41,7 +41,7 @@ class DataCollection:
             #if dataFrame[column].dtype==np.number:
             if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
                 #1
-                min_max=MinMaxScaler(feature_range=(-1, 1))
+                min_max=MinMaxScaler(feature_range=(0, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
                 #2
                 #dataFrame[[column]]=preprocessing.normalize(dataFrame[[column]], norm='l1',axis=1)
