@@ -15,7 +15,8 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import Binarizer
-
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
 
 class DataCollection:
 
@@ -31,15 +32,21 @@ class DataCollection:
 
 
         categorical_feature_mask = dataFrame.dtypes==object
-        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()#.remove('time')
-        #1. remove categorical columns
+        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()
+        
+        #1. similar to one-hot encoding
+        """categoricalColumns.remove("time")
+        tempdf=pd.get_dummies(dataFrame,columns=categoricalColumns)
+        dataFrame=dataFrame.drop(categoricalColumns,axis=1)
+        dataFrame=pd.concat([dataFrame, tempdf], axis=1)"""
+
+        #2. remove categorical columns
         #dataFrame=dataFrame.drop([categoricalColumns], axis=1)
         for col in categoricalColumns:
+            if col!="time":
                 del dataFrame[col]
 
         
-        #2. similar to one-hot encoding
-        #dataFrame= pd.get_dummies(dataFrame)
 
         #3. labelencoding
         """le = LabelEncoder()
@@ -57,7 +64,8 @@ class DataCollection:
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
-            if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            #if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            if  is_numeric_dtype(dataFrame[column]) and column!="id" and column!="time":
                 #1
                 min_max=MinMaxScaler(feature_range=(0, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])

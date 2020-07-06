@@ -69,7 +69,7 @@ class DQTestToolHelper:
     dataCollection=DataCollection()
     dataFramePreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status','time'], axis=1))
+        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status'], axis=1))
     else:
         dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
 
@@ -88,7 +88,7 @@ class DQTestToolHelper:
     
     dataFrameTrainPreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status','time'], axis=1))
+        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
         #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
@@ -315,7 +315,7 @@ class DQTestToolHelper:
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in faultyTimeseriesIndexes[0]:
                 temp=XWithInvalidityScores[timeseriesIndex]
-                cols=timeseries.columns.values[0:-1]
+                cols=dataFrame.columns.values[0:-2]
                 cols=np.append(cols,'invalidityScore')
                 tempdf=pd.DataFrame(temp, columns=cols)
                 a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
@@ -361,7 +361,7 @@ class DQTestToolHelper:
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
+   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -425,7 +425,7 @@ class DQTestToolHelper:
 
     index=0
     for i in faultyTimeseriesIndexes[0]:
-        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
+        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
         #Update status of suspicious groups in database@
@@ -476,7 +476,6 @@ class DQTestToolHelper:
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
 
         df = df.style.apply(self.highlight_greaterthan,threshold=faultyThresholdRecords,column=['invalidityScore'], axis=1)
-        print(df)
         
 
         if invalidityScores[i]>=1.0:
