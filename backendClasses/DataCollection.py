@@ -22,20 +22,38 @@ class DataCollection:
     
     @staticmethod
     def importData(csvPath):
-        return pd.read_csv(csvPath,index_col=0)
+        return pd.read_csv(csvPath,index_col=0, error_bad_lines=False)
         #return pd.DataFrame.from_csv(csvPath)
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(9999)
+        dataFrame=dataFrame.fillna(-1)
 
-        """categoricalColumns=self.findCategorical(dataFrame)
-        print(categoricalColumns)
-        le=OneHotEncoder()
+
+        categorical_feature_mask = dataFrame.dtypes==object
+        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()#.remove('time')
+        #1. remove categorical columns
+        #dataFrame=dataFrame.drop([categoricalColumns], axis=1)
         for col in categoricalColumns:
-            data=dataFrame[col]
-            le.fit(data)
-            dataFrame[col]=le.transform(dataFrame[col])"""
+                del dataFrame[col]
+
+        
+        #2. similar to one-hot encoding
+        #dataFrame= pd.get_dummies(dataFrame)
+
+        #3. labelencoding
+        """le = LabelEncoder()
+        for col in categoricalColumns:
+            if col!="id" and col!="time":
+                dataFrame[col] = dataFrame[col].astype('str')
+                le.fit(dataFrame[col])
+                dataFrame[col]=le.transform(dataFrame[col])"""
+                
+        #4. One-hot encoding
+        """ohe = OneHotEncoder(categorical_features = categorical_feature_mask, sparse=False )
+        dataFrame=ohe.fit_transform(dataFrame)"""
+
+        print(dataFrame)
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
@@ -60,14 +78,6 @@ class DataCollection:
 
 
     
-    def findCategorical(self,df_data):
-        categorical_columns=[]
-        for column in df_data.columns.values:
-            if self.is_number(df_data.iloc[1][column])==False:
-                categorical_columns.append(column)
-            """elif all(float(x).is_integer() for x in df_data[column]):
-                categorical_columns.append(column)"""
-        return categorical_columns
     
     def is_number(self,s):
         try:

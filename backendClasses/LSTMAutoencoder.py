@@ -178,7 +178,7 @@ class LSTMAutoencoder(PatternDiscovery):
     model.add(TimeDistributed(Dense(n_features-2)))
     """def custom_loss(y_true,y_pred):
         return K.max(K.square(y_pred - y_true))"""
-    opt = keras.optimizers.Adam(lr=0.01)
+    opt = keras.optimizers.Adam(lr=0.1)
     model.compile(optimizer=opt, loss="mse")
     model.summary()
     # fit model

@@ -45,7 +45,7 @@ class DQTestToolHelper:
    
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(3000)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -69,7 +69,7 @@ class DQTestToolHelper:
     dataCollection=DataCollection()
     dataFramePreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status'], axis=1))
+        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status','time'], axis=1))
     else:
         dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
 
@@ -88,7 +88,7 @@ class DQTestToolHelper:
     
     dataFrameTrainPreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
+        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status','time'], axis=1))
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
         #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
@@ -168,7 +168,7 @@ class DQTestToolHelper:
     if not knownFaults.empty:
         E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     #NumRealFaultyTimeseries
-    P_T=0
+    P_T=0.0
     for timeseriesIndex in range(len(invalidityScores)):
         timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex]
         if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
@@ -302,14 +302,15 @@ class DQTestToolHelper:
     #NumRealNormalTimeseries
     N_T=0.0
     #Number of actual faulty records
-    P=len(E)
+    P=float(len(E))
     #Number of detected faulty records 
     a=set()
     #Number of actual valid records
-    N=len(dataFrame)-P
+    N=float(len(dataFrame))-P
     #set of actual valid records
     n=set(dataFrame[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).difference(E)
-
+    print("faultyThresholdRecords")
+    print(faultyThresholdRecords)
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in faultyTimeseriesIndexes[0]:
@@ -320,25 +321,23 @@ class DQTestToolHelper:
                 a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
         print("P_T")
         print(P_T)
+
         
         #calculate scores at record level for timeseries      
-        TP=len(a.intersection(E))
-        FP=len(a.intersection(n))
-        FPR=FP/N
+        TP=float(len(a.intersection(E)))
+        FP=float(len(a.intersection(n)))
 
         if P>0:
             TPR=TP/P
-        FNR=1-TPR
-        TNR=1-FPR
 
         if TPR>0:
-            precision=TPR/(TPR+FPR)
-            recall=TPR/(TPR+FNR)
+            precision=TP/(TP+FP)
+            recall=TPR
             F1=(2*precision*recall)/(precision+recall)
         #
 
 
-        N_T=len(invalidityScores)-P_T
+        N_T=float(len(invalidityScores))-P_T
         #if None means if it is the first time we run the tool or if we are in command line mode
         if TP_T is None:
             TP_T=0.0
@@ -350,17 +349,13 @@ class DQTestToolHelper:
                 else:
                     FP_T+=1.0
                 db.execute("Drop table faultyTimeseries_i")
-            #
-            FPR_T=float(FP_T)/N_T
 
         if P_T>0:
             TPR_T=TP_T/P_T
-        FNR_T=1-TPR_T
-        TNR_T=1-FPR_T
 
     if TPR_T>0:
-        precision_T=TPR_T/(TPR_T+FPR_T)
-        recall_T=TPR_T/(TPR_T+FNR_T)
+        precision_T=TP_T/(TP_T+FP_T)
+        recall_T=TPR_T
         F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
     db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,TPR, FPR,TPR_T,FPR_T,F1_T))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
