@@ -45,7 +45,7 @@ class DQTestToolHelper:
    
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(3000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(1000)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -428,6 +428,27 @@ class DQTestToolHelper:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
+        mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
+
+        if len(categoricalColumns)>0:
+            completedf=pd.DataFrame(Y.reshape(-1, len(Y)),columns=X)
+
+
+            categoricaldf=pd.DataFrame()
+            categoricalColumnsEncoded=[]
+            for col in categoricalColumns:
+                with_col = [x for x in completedf.columns.values if x.startswith(col)] 
+                categoricalColumnsEncoded.append(with_col)
+                tempdf=completedf[with_col]
+                tempdf_mean=pd.DataFrame(tempdf.mean(axis = 1), columns=[col]) 
+                categoricaldf= pd.concat([categoricaldf, tempdf_mean], axis=1)
+            nonCategoricaldf=completedf.drop(list(np.concatenate(categoricalColumnsEncoded).flat), axis=1)
+            finaldf=pd.concat([nonCategoricaldf,categoricaldf],axis=1)
+            X=finaldf.columns.values
+            Y=finaldf.to_numpy()[0]
+        
+        #
+
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)

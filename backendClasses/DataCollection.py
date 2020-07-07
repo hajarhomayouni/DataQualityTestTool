@@ -31,22 +31,19 @@ class DataCollection:
         dataFrame=dataFrame.fillna(-1)
 
 
-        categorical_feature_mask = dataFrame.dtypes==object
-        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()
+        categorical_feature_mask, categoricalColumns = self.find_categorical(dataFrame)
         
         #1. similar to one-hot encoding
-        """categoricalColumns.remove("time")
-        tempdf=pd.get_dummies(dataFrame,columns=categoricalColumns)
-        dataFrame=dataFrame.drop(categoricalColumns,axis=1)
-        dataFrame=pd.concat([dataFrame, tempdf], axis=1)"""
+        if len(categoricalColumns)>0:
+            tempdf=pd.get_dummies(dataFrame[categoricalColumns],columns=categoricalColumns)
+            dataFrame=dataFrame.drop(categoricalColumns,axis=1)
+            dataFrame=pd.concat([dataFrame, tempdf], axis=1)
 
         #2. remove categorical columns
         #dataFrame=dataFrame.drop([categoricalColumns], axis=1)
-        for col in categoricalColumns:
+        """for col in categoricalColumns:
             if col!="time":
-                del dataFrame[col]
-
-        
+                del dataFrame[col]"""        
 
         #3. labelencoding
         """le = LabelEncoder()
@@ -60,7 +57,6 @@ class DataCollection:
         """ohe = OneHotEncoder(categorical_features = categorical_feature_mask, sparse=False )
         dataFrame=ohe.fit_transform(dataFrame)"""
 
-        print(dataFrame)
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
@@ -84,6 +80,13 @@ class DataCollection:
         return dataFrame
 
 
+    def find_categorical(self, dataFrame):
+        dataFrame=dataFrame.fillna(-1)
+        categorical_feature_mask = dataFrame.dtypes==object
+        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()
+        if "time" in categoricalColumns:
+            categoricalColumns.remove("time")
+        return categorical_feature_mask,categoricalColumns
 
     
     
