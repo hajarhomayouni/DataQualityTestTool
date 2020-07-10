@@ -153,7 +153,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,99)        
+    faultyThreshold=np.percentile(invalidityScores,90)        
     #
     X=np.array(XWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
@@ -414,7 +414,7 @@ class DQTestToolHelper:
         normalFeatures=pd.concat([normalFeatures,df_attributes])
     normalFrame=normalFeatures
     normalFrame=normalFrame.fillna(0)
-    normalFrame=normalFrame.replace(np.inf, 0)
+    normalFrameGeneral=normalFrame.replace(np.inf, 0)
 
 
 
@@ -428,6 +428,12 @@ class DQTestToolHelper:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
+        ########################################################
+        #1. Only use faulty attributes to generate the trees
+        ########################################################
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,80)]
+        faulty_attributes=X[faulty_attributes_indexes]
+        ########################################################
         mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
 
         if len(categoricalColumns)>0:
@@ -473,7 +479,11 @@ class DQTestToolHelper:
         faultyFrame=df_attributes
         faultyFrame=faultyFrame.fillna(0)
         faultyFrame=faultyFrame.replace(np.inf, 0)
-
+        ########################################################
+        #2. Only use faulty attributes to generate the trees
+        ########################################################
+        faultyFrame=faultyFrame[[col for col in faultyFrame if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State")) ]]           
+        normalFrame=normalFrameGeneral[[col for col in normalFrameGeneral if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State"))]]
         ###############################################
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
