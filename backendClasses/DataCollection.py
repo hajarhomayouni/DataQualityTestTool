@@ -26,12 +26,14 @@ class DataCollection:
         return pd.read_csv(csvPath,index_col=0, error_bad_lines=False)
         #return pd.DataFrame.from_csv(csvPath)
 
-    def preprocess(self,dataFrame):
+    def preprocess(self,dataFrame,grouping_attr=None):
         #proprocess null data
         dataFrame=dataFrame.fillna(-1)
 
 
         categorical_feature_mask, categoricalColumns = self.find_categorical(dataFrame)
+        if grouping_attr and grouping_attr in categoricalColumns:
+            categoricalColumns.remove(grouping_attr)
         
         #1. similar to one-hot encoding
         if len(categoricalColumns)>0:

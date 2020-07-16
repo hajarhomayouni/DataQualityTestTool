@@ -45,7 +45,7 @@ class DQTestToolHelper:
    
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(1000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath).tail(300000)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -60,7 +60,7 @@ class DQTestToolHelper:
     return datasetId
 
 
-   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T=None,win_size=None):
+   def constraintDiscoveryAndFaultDetection(self,db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr=None,TP_T=None,win_size=None):
     truePositive=0.0
     truePositiveRate=0.0
     NRDataFrame=pd.read_sql(sql="SELECT count(*) FROM scores where dataset_id like '"+datasetId+"'", con=db)
@@ -69,7 +69,7 @@ class DQTestToolHelper:
     dataCollection=DataCollection()
     dataFramePreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status'], axis=1))
+        dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop(['invalidityScore','status'], axis=1),grouping_attr)
     else:
         dataFramePreprocessed=dataCollection.preprocess(dataFrame.drop([dataFrame.columns.values[0],'invalidityScore','status'], axis=1))
 
@@ -88,7 +88,7 @@ class DQTestToolHelper:
     
     dataFrameTrainPreprocessed=pd.DataFrame()
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1))
+        dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop(['invalidityScore','status'], axis=1),grouping_attr)
     else:
         dataFrameTrainPreprocessed=dataCollection.preprocess(dataFrameTrain.drop([dataFrameTrain.columns.values[0],'invalidityScore','status'], axis=1))
         #replace suspicious with zero only for tuning parameters via testScriptTuning.py (we do not want any feedback in that case)
@@ -102,9 +102,9 @@ class DQTestToolHelper:
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         patternDiscovery=LSTMAutoencoder()
         if win_size==None:
-            win_size=patternDiscovery.identifyWindowSize(dataFramePreprocessed)
+            win_size=patternDiscovery.identifyWindowSize(dataFramePreprocessed,grouping_attr)
             hyperParameters={"auto_win_size:"+str(win_size)}
-        bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed,win_size)
+        bestConstraintDiscoveryModel,dataFrameTimeseries=patternDiscovery.tuneAndTrain(dataFrameTrainPreprocessed,win_size,grouping_attr)
     elif constraintDiscoveryMethod=="H2O_Autoencoder":
         patternDiscovery=Autoencoder()           
         model=H2OAutoEncoderEstimator(activation='Tanh', epochs=hyperParameters['epochs'],export_weights_and_biases=True, quiet_mode=False,hidden=hyperParameters['hidden'], categorical_encoding="auto", standardize=True)#,hidden_dropout_ratios=hyperParameters['hidden_dropout_ratios'], input_dropout_ratio=hyperParameters['input_dropout_ratio'],l2=hyperParameters['l2'])
@@ -126,7 +126,7 @@ class DQTestToolHelper:
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         timeseries_raw=dataFrame.drop(['invalidityScore','status'], axis=1)
         timeseries=dataFramePreprocessed
-        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,timeseries,timeseries_raw,y,win_size)
+        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,timeseries,timeseries_raw,y,win_size,grouping_attr)
         invalidityScores=mse_timeseries
         #patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
@@ -309,8 +309,6 @@ class DQTestToolHelper:
     N=float(len(dataFrame))-P
     #set of actual valid records
     n=set(dataFrame[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).difference(E)
-    print("faultyThresholdRecords")
-    print(faultyThresholdRecords)
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in faultyTimeseriesIndexes[0]:
@@ -361,7 +359,7 @@ class DQTestToolHelper:
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
+   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr=None):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -426,13 +424,19 @@ class DQTestToolHelper:
     index=0
     for i in faultyTimeseriesIndexes[0]:
         df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
-        X=dataFramePreprocessed.columns.values[2:]
+        X=list(dataFramePreprocessed.columns.values[2:])
+        if grouping_attr:
+            X.remove(grouping_attr)
+        X=np.array(X)
         Y=mse_attributes[i]
         ########################################################
         #1. Only use faulty attributes to generate the trees
         ########################################################
-        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,80)]
-        faulty_attributes=X[faulty_attributes_indexes]
+        faulty_attributes=X
+        #if it is a multivariate timeseries
+        if len(dataFrameTimeseries.columns.values)>4:
+            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,80)]
+            faulty_attributes=X[faulty_attributes_indexes]
         ########################################################
         mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
 
@@ -454,7 +458,6 @@ class DQTestToolHelper:
             Y=finaldf.to_numpy()[0]
         
         #
-
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
@@ -482,8 +485,13 @@ class DQTestToolHelper:
         ########################################################
         #2. Only use faulty attributes to generate the trees
         ########################################################
-        faultyFrame=faultyFrame[[col for col in faultyFrame if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State")) ]]           
-        normalFrame=normalFrameGeneral[[col for col in normalFrameGeneral if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State"))]]
+        if grouping_attr:
+            faultyFrame=faultyFrame[[col for col in faultyFrame if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith(grouping_attr)) ]]           
+            normalFrame=normalFrameGeneral[[col for col in normalFrameGeneral if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith(grouping_attr))]]
+        else:
+            faultyFrame=faultyFrame[[col for col in faultyFrame if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) ]]#and (not col.startswith(grouping_attr)) ]]           
+            normalFrame=normalFrameGeneral[[col for col in normalFrameGeneral if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) ]]#and (not col.startswith(grouping_attr))]]
+
         ###############################################
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
