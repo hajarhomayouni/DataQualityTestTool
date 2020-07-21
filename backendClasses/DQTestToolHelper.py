@@ -121,12 +121,13 @@ class DQTestToolHelper:
     invalidityScoresPerFeature=[]
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
+    XRawWithInvalidityScores=[]
     mse_attributes=[]
     networkError=0.0
     if "LSTMAutoencoder" in constraintDiscoveryMethod:
         timeseries_raw=dataFrame.drop(['invalidityScore','status'], axis=1)
         timeseries=dataFramePreprocessed
-        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,timeseries,timeseries_raw,y,win_size,grouping_attr)
+        mse_timeseries, mse_records, mse_attributes,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores=patternDiscovery.assignInvalidityScore(bestConstraintDiscoveryModel,timeseries,timeseries_raw,y,win_size,grouping_attr)
         invalidityScores=mse_timeseries
         #patternDiscovery.findLsbs_3(bestConstraintDiscoveryModel,dataFramePreprocessed,win_size)
     elif constraintDiscoveryMethod=="LSTM":
@@ -153,9 +154,9 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,90)        
+    faultyThreshold=np.percentile(invalidityScores,88)        
     #
-    X=np.array(XWithInvalidityScores)
+    X=np.array(XRawWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
     cols=dataFrame.columns.values[:-2]
     cols=np.append(cols,'invalidityScore')
@@ -239,9 +240,9 @@ class DQTestToolHelper:
         faultyRecordsInTimeseries=pd.DataFrame()
         normalRecordsInTimeseries=pd.DataFrame()
         for i in faultyTimeseriesIndexes[0]:
-            faultyRecordsInTimeseries=pd.concat([faultyRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
+            faultyRecordsInTimeseries=pd.concat([faultyRecordsInTimeseries, pd.DataFrame(XRawWithInvalidityScores[i][:,0])])
         for j in normalTimeseriesIndexes[0]:
-            normalRecordsInTimeseries=pd.concat([normalRecordsInTimeseries, pd.DataFrame(XWithInvalidityScores[i][:,0])])
+            normalRecordsInTimeseries=pd.concat([normalRecordsInTimeseries, pd.DataFrame(XRawWithInvalidityScores[i][:,0])])
         if not faultyRecordsInTimeseries.empty:
             faultyRecordsInTimeseries.to_sql("faultyRecords_temp_"+datasetId, con=db, if_exists='replace', index=False)
             faultyRecordFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId+ " where "+dataFrame.columns.values[0]+ " IN (Select * FROM faultyRecords_temp_"+datasetId+" )",con=db)
@@ -312,11 +313,14 @@ class DQTestToolHelper:
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in faultyTimeseriesIndexes[0]:
-                temp=XWithInvalidityScores[timeseriesIndex]
+                temp=XRawWithInvalidityScores[timeseriesIndex]
                 cols=dataFrame.columns.values[0:-2]
                 cols=np.append(cols,'invalidityScore')
                 tempdf=pd.DataFrame(temp, columns=cols)
-                a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
+                #Based on a threshold on overall invalidity scores per records
+                #a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
+                #Based on mean of invalidity scores in each subsequence
+                a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= tempdf['invalidityScore'].mean())][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
         print("P_T")
         print(P_T)
 
@@ -356,17 +360,18 @@ class DQTestToolHelper:
         recall_T=TPR_T
         F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
     db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,TPR, FPR,TPR_T,FPR_T,F1_T))
-    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
+    return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr=None):
+   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr=None):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
     suspicious_records_html=[]
     faulty_cluster_scores_fig_url=[]
     suspicious_cluster_scores_fig_url=[]
-    #timeseries_fig_urls=[]
+    faulty_timeseries_fig_url=[]
+    suspicious_timeseries_fig_url=[]
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
     """dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
@@ -423,7 +428,10 @@ class DQTestToolHelper:
 
     index=0
     for i in faultyTimeseriesIndexes[0]:
-        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
+        #########################################################
+        #Prepare X and Y for s-score per attribute plot
+        #########################################################
+        df = pd.DataFrame(XRawWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
         X=list(dataFramePreprocessed.columns.values[2:])
         if grouping_attr:
             X.remove(grouping_attr)
@@ -435,7 +443,7 @@ class DQTestToolHelper:
         faulty_attributes=X
         #if it is a multivariate timeseries
         if len(dataFrameTimeseries.columns.values)>4:
-            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,80)]
+            faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,90)]
             faulty_attributes=X[faulty_attributes_indexes]
         ########################################################
         mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
@@ -457,7 +465,22 @@ class DQTestToolHelper:
             X=finaldf.columns.values
             Y=finaldf.to_numpy()[0]
         
-        #
+        ##############################################################
+        #Prepare actual, predicted vs time for data_visualization plot
+        ##############################################################
+
+        #faulty_attribute_index = np.where(dataFrameTimeseries.columns.values==faulty_attributes[0])[0][0]
+        faulty_attribute_index=np.where(Y==max(Y))
+        faulty_attribute=X[faulty_attribute_index]
+        h_axis=np.array(dataFrameTimeseries["time"])
+        v1_axis=np.array(dataFrameTimeseries[faulty_attribute])
+        #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
+        v_title=faulty_attribute
+        v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i][faulty_attribute]
+        h_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]["time"]
+        
+        
+        ################################################
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
@@ -521,12 +544,14 @@ class DQTestToolHelper:
             faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.render())
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
             faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            faulty_timeseriies_fig_url.append(dataCollection.build_graph(h_axis,v1_axis,10,90,v_title,h_red,v1_red))
         else:
             suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.render())
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
+            suspicious_timeseries_fig_url.append(dataCollection.build_graph(h_axis,v1_axis,10,90,v_title,h_red,v1_red))
 
-    return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url
+    return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url,faulty_timeseries_fig_url,suspicious_timeseries_fig_url
 
 
    def faultInterpretation(self,db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold):

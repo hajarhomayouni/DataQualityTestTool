@@ -266,6 +266,7 @@ class LSTMAutoencoder(PatternDiscovery):
     mse_records=[]
     yhatWithInvalidityScores=[]
     XWithInvalidityScores=[]
+    XRawWithInvalidityScores=[]
     mse_attributes=[]
     maxOfLabels=[]
     for i in range((X.shape[0])):
@@ -280,13 +281,14 @@ class LSTMAutoencoder(PatternDiscovery):
         mse_attribute=np.square(XWithoutIdAndTime[i]-yhat[i]).mean(axis=0)
         mse_attributes.append(mse_attribute)
         yhatWithInvalidityScores.append(np.concatenate((yhat[i],byRowArr.T),axis=1))
-        XWithInvalidityScores.append(np.concatenate((X_raw[i],byRowArr.T),axis=1))
+        XWithInvalidityScores.append(np.concatenate((X[i],byRowArr.T),axis=1))
+        XRawWithInvalidityScores.append(np.concatenate((X_raw[i],byRowArr.T),axis=1))
     mse_timeseries=[i/sum(mse_timeseries) for i in mse_timeseries]
     mse_timeseries=list(map(add, mse_timeseries, maxOfLabels)) 
 
     #mse_records=normalize(mse_records, axis=1, norm='l1')
     #mse_attributes=normalize(mse_attributes, axis=0, norm='l1')
-    return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores
+    return mse_timeseries, mse_records, mse_attributes, yhatWithInvalidityScores, XWithInvalidityScores,XRawWithInvalidityScores
 
     
 

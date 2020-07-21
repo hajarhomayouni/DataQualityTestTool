@@ -125,7 +125,7 @@ def validate():
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
         
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr,TP_T,win_size=None)   
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr,TP_T,win_size=None)   
     numberOfClusters=0
     faulty_records_html=[]
     faulty_cluster_scores_fig_url=[]
@@ -134,7 +134,7 @@ def validate():
     suspicious_cluster_scores_fig_url=[]
     suspicious_cluster_dt_url=[]
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url,faulty_timeseries_fig_url,suspicious_timeseries_fig_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr)
         groupIDs=','.join(str(x) for x in list(faultyTimeseriesIndexes[0]))
     else:
         numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
@@ -142,7 +142,7 @@ def validate():
     db.commit()
     db.close()
 
-    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url, groupIDs=groupIDs)
+    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url,faulty_timeseries_fig_url=faulty_timeseries_fig_url, suspicious_timeseries_fig_url=suspicious_timeseries_fig_url,groupIDs=groupIDs)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

@@ -82,6 +82,13 @@ class DataCollection:
         return dataFrame
 
 
+    def findSubarray(array, subarray):
+        len_b = len(subarray)
+        for i in range(len(array)):  
+            if array[i:i+len_b] == subarray:
+                return i,i+len_b 
+
+
     def find_categorical(self, dataFrame):
         dataFrame=dataFrame.fillna(-1)
         categorical_feature_mask = dataFrame.dtypes==object
@@ -124,14 +131,19 @@ class DataCollection:
         return recordSet
 
     @staticmethod
-    def build_graph(x_coordinates, y_coordinates):
+    def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None):
         img = io.BytesIO()
-        #plt.xticks(rotation=45)
         #plt.tick_params(labelsize=1)
-        plt.rcParams.update({'font.size': 15})
+        plt.rcParams.update({'font.size': font_size})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
-        plt.plot(x_coordinates, y_coordinates,'o')
+        plt.plot(x_coordinates, y_coordinates,"o")
+        plt.xticks(rotation=x_rotate)
+        plt.title(y_title)
+        #
+        if  x_red is not None:
+            plt.plot(x_red, y_red,"o", color="red")
+        #
         plt.savefig(img, format='png',bbox_inches='tight')
         img.seek(0)
         graph_url = base64.b64encode(img.getvalue()).decode()
