@@ -34,6 +34,8 @@ from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_relevant_features
 import re
 import decimal
+import matplotlib.dates as mdates
+
 
 class DQTestToolHelper:
    
@@ -154,7 +156,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,88)        
+    faultyThreshold=np.percentile(invalidityScores,95)        
     #
     X=np.array(XRawWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
@@ -473,6 +475,14 @@ class DQTestToolHelper:
         faulty_attribute_index=np.where(Y==max(Y))
         faulty_attribute=X[faulty_attribute_index]
         h_axis=np.array(dataFrameTimeseries["time"])
+        print(h_axis)
+        #
+        """h_axis=[datetime.datetime.strptime(d,"%m/%d/%Y").date() for d in h_axis]
+        h_axis=np.array(h_axis)
+        t2=[mdates.date2num(line) for line in t1]
+        h_axis=np.array(t2)
+        print(h_axis)"""
+        #
         v1_axis=np.array(dataFrameTimeseries[faulty_attribute])
         #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
         v_title=faulty_attribute

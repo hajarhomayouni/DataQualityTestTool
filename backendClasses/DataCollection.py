@@ -7,7 +7,11 @@ import numpy as np
 import csv
 import matplotlib as mpl
 mpl.use('Agg')
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import pylab as plt
+import datetime
+from matplotlib.dates import  DateFormatter, DayLocator
+
 import io
 import base64
 from sklearn import preprocessing
@@ -17,7 +21,7 @@ from sklearn.preprocessing import scale
 from sklearn.preprocessing import Binarizer
 from pandas.api.types import is_string_dtype
 from pandas.api.types import is_numeric_dtype
-
+import matplotlib.dates as mdates
 class DataCollection:
 
     
@@ -133,17 +137,39 @@ class DataCollection:
     @staticmethod
     def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None):
         img = io.BytesIO()
-        #plt.tick_params(labelsize=1)
         plt.rcParams.update({'font.size': font_size})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
-        plt.plot(x_coordinates, y_coordinates,"o")
-        plt.xticks(rotation=x_rotate)
         plt.title(y_title)
         #
         if  x_red is not None:
+            fig, ax = plt.subplots()
+            fig = plt.gcf() 
+            fig.set_size_inches(30,3)
+            fig.autofmt_xdate()
+            """plt.axes(ax)
+            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+            ax.xaxis.set_major_locator(DayLocator())
+            plt.xticks(rotation=x_rotate)"""
+
+            dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_coordinates]
+            x_coordinates=dates
+            plt.axes(ax)
+            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+            ax.xaxis.set_major_locator(DayLocator())
+            plt.xticks(rotation=x_rotate)
+            plt.plot(x_coordinates, y_coordinates,"o")
+            
+            dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_red]
+            x_red=dates
+            plt.axes(ax)
+            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+            ax.xaxis.set_major_locator(DayLocator())
+            plt.xticks(rotation=x_rotate)
             plt.plot(x_red, y_red,"o", color="red")
         #
+        else:
+            plt.plot(x_coordinates, y_coordinates,"o")
         plt.savefig(img, format='png',bbox_inches='tight')
         img.seek(0)
         graph_url = base64.b64encode(img.getvalue()).decode()
