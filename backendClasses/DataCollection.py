@@ -15,31 +15,53 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import Binarizer
-
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
 
 class DataCollection:
 
     
     @staticmethod
     def importData(csvPath):
-        return pd.read_csv(csvPath,index_col=0)
+        return pd.read_csv(csvPath,index_col=0, error_bad_lines=False)
         #return pd.DataFrame.from_csv(csvPath)
 
     def preprocess(self,dataFrame):
         #proprocess null data
-        dataFrame=dataFrame.fillna(9999)
+        dataFrame=dataFrame.fillna(-1)
 
-        """categoricalColumns=self.findCategorical(dataFrame)
-        print(categoricalColumns)
-        le=OneHotEncoder()
+
+        categorical_feature_mask, categoricalColumns = self.find_categorical(dataFrame)
+        
+        #1. similar to one-hot encoding
+        if len(categoricalColumns)>0:
+            tempdf=pd.get_dummies(dataFrame[categoricalColumns],columns=categoricalColumns)
+            dataFrame=dataFrame.drop(categoricalColumns,axis=1)
+            dataFrame=pd.concat([dataFrame, tempdf], axis=1)
+
+        #2. remove categorical columns
+        #dataFrame=dataFrame.drop([categoricalColumns], axis=1)
+        """for col in categoricalColumns:
+            if col!="time":
+                del dataFrame[col]"""        
+
+        #3. labelencoding
+        """le = LabelEncoder()
         for col in categoricalColumns:
-            data=dataFrame[col]
-            le.fit(data)
-            dataFrame[col]=le.transform(dataFrame[col])"""
+            if col!="id" and col!="time":
+                dataFrame[col] = dataFrame[col].astype('str')
+                le.fit(dataFrame[col])
+                dataFrame[col]=le.transform(dataFrame[col])"""
+                
+        #4. One-hot encoding
+        """ohe = OneHotEncoder(categorical_features = categorical_feature_mask, sparse=False )
+        dataFrame=ohe.fit_transform(dataFrame)"""
+
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
-            if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            #if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            if  is_numeric_dtype(dataFrame[column]) and column!="id" and column!="time":
                 #1
                 min_max=MinMaxScaler(feature_range=(0, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
@@ -58,16 +80,15 @@ class DataCollection:
         return dataFrame
 
 
+    def find_categorical(self, dataFrame):
+        dataFrame=dataFrame.fillna(-1)
+        categorical_feature_mask = dataFrame.dtypes==object
+        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()
+        if "time" in categoricalColumns:
+            categoricalColumns.remove("time")
+        return categorical_feature_mask,categoricalColumns
 
     
-    def findCategorical(self,df_data):
-        categorical_columns=[]
-        for column in df_data.columns.values:
-            if self.is_number(df_data.iloc[1][column])==False:
-                categorical_columns.append(column)
-            """elif all(float(x).is_integer() for x in df_data[column]):
-                categorical_columns.append(column)"""
-        return categorical_columns
     
     def is_number(self,s):
         try:

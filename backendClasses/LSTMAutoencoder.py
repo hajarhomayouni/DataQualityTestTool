@@ -140,8 +140,8 @@ class LSTMAutoencoder(PatternDiscovery):
          lag_acs.append(lag_ac)
          if lag_ac>win_size:
              win_size=lag_ac
-         """if win_size<10:
-             win_size=10"""
+         if win_size<10:
+             win_size=10
 
      #return (int)(statistics.mean(win_sizes_of_columns))
      """print("autocorrelations**************")
@@ -178,7 +178,7 @@ class LSTMAutoencoder(PatternDiscovery):
     model.add(TimeDistributed(Dense(n_features-2)))
     """def custom_loss(y_true,y_pred):
         return K.max(K.square(y_pred - y_true))"""
-    opt = keras.optimizers.Adam(lr=0.01)
+    opt = keras.optimizers.Adam(lr=0.1)
     model.compile(optimizer=opt, loss="mse")
     model.summary()
     # fit model
@@ -203,6 +203,7 @@ class LSTMAutoencoder(PatternDiscovery):
     timeseries=pd.concat([timeseries[[timeseries.columns.values[0], timeseries.columns.values[1]]],diff], axis=1)
     timeseries=timeseries.head(len(diff)-(interval+1))"""
     #
+
     timeseries=timeseries.to_numpy()
     dataFrame=dataFrame.to_numpy()
 
@@ -215,7 +216,8 @@ class LSTMAutoencoder(PatternDiscovery):
     X = np.array(X)
     X = X.reshape(X.shape[0], win_size, n_features)
     X_raw = np.array(X_raw)
-    X_raw = X_raw.reshape(X_raw.shape[0], win_size, n_features)
+    n_features_raw=dataFrame.shape[1]
+    X_raw = X_raw.reshape(X_raw.shape[0], win_size, n_features_raw)
     yhat = model.predict(np.delete(X,[0,1],axis=2), verbose=1)
     """print("test***************")
     test=np.delete(X,[0,1],axis=2)[0:1]

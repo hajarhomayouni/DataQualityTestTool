@@ -45,7 +45,7 @@ class DQTestToolHelper:
    
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.tail(1000)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -153,7 +153,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,99)        
+    faultyThreshold=np.percentile(invalidityScores,90)        
     #
     X=np.array(XWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
@@ -168,7 +168,7 @@ class DQTestToolHelper:
     if not knownFaults.empty:
         E=set(knownFaults[knownFaults.columns.values[0]].astype(str).tolist())
     #NumRealFaultyTimeseries
-    P_T=0
+    P_T=0.0
     for timeseriesIndex in range(len(invalidityScores)):
         timeseries=dataFrameTimeseries[dataFrameTimeseries['timeseriesId'] == timeseriesIndex]
         if len(set(timeseries[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).intersection(E))>0:
@@ -302,43 +302,42 @@ class DQTestToolHelper:
     #NumRealNormalTimeseries
     N_T=0.0
     #Number of actual faulty records
-    P=len(E)
+    P=float(len(E))
     #Number of detected faulty records 
     a=set()
     #Number of actual valid records
-    N=len(dataFrame)-P
+    N=float(len(dataFrame))-P
     #set of actual valid records
     n=set(dataFrame[dataFrame.columns.values[0]].astype(int).astype(str).tolist()).difference(E)
-
+    print("faultyThresholdRecords")
+    print(faultyThresholdRecords)
     F1_T=FP_T=FPR_T=TPR_T=0.0
     if constraintDiscoveryMethod=="LSTMAutoencoder":
         for timeseriesIndex in faultyTimeseriesIndexes[0]:
                 temp=XWithInvalidityScores[timeseriesIndex]
-                cols=timeseries.columns.values[0:-1]
+                cols=dataFrame.columns.values[0:-2]
                 cols=np.append(cols,'invalidityScore')
                 tempdf=pd.DataFrame(temp, columns=cols)
                 a=a.union(set(tempdf.loc[(tempdf['invalidityScore'] >= faultyThresholdRecords)][dataFrame.columns.values[0]].astype(int).astype(str).tolist()))
         print("P_T")
         print(P_T)
+
         
         #calculate scores at record level for timeseries      
-        TP=len(a.intersection(E))
-        FP=len(a.intersection(n))
-        FPR=FP/N
+        TP=float(len(a.intersection(E)))
+        FP=float(len(a.intersection(n)))
 
         if P>0:
             TPR=TP/P
-        FNR=1-TPR
-        TNR=1-FPR
 
         if TPR>0:
-            precision=TPR/(TPR+FPR)
-            recall=TPR/(TPR+FNR)
+            precision=TP/(TP+FP)
+            recall=TPR
             F1=(2*precision*recall)/(precision+recall)
         #
 
 
-        N_T=len(invalidityScores)-P_T
+        N_T=float(len(invalidityScores))-P_T
         #if None means if it is the first time we run the tool or if we are in command line mode
         if TP_T is None:
             TP_T=0.0
@@ -350,23 +349,19 @@ class DQTestToolHelper:
                 else:
                     FP_T+=1.0
                 db.execute("Drop table faultyTimeseries_i")
-            #
-            FPR_T=float(FP_T)/N_T
 
         if P_T>0:
             TPR_T=TP_T/P_T
-        FNR_T=1-TPR_T
-        TNR_T=1-FPR_T
 
     if TPR_T>0:
-        precision_T=TPR_T/(TPR_T+FPR_T)
-        recall_T=TPR_T/(TPR_T+FNR_T)
+        precision_T=TP_T/(TP_T+FP_T)
+        recall_T=TPR_T
         F1_T=(2*precision_T*recall_T)/(precision_T+recall_T)
     db.execute('INSERT INTO scores (time, dataset_id,HP,Loss,PD,SD,F1,UD,ND,TPR,FPR,TPR_T,FPR_T,F1_T) VALUES (?,?,?,?,?,?,?, ?, ?, ?, ?,?,?,?)',(datetime.datetime.now(), datasetId, str(hyperParameters), networkError, PD,SD,F1,UD,ND,TPR, FPR,TPR_T,FPR_T,F1_T))
     return faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y
 
 
-   def faultyTimeseriesInterpretation(self,db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
+   def faultyTimeseriesInterpretation(self,db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords):
     dataCollection=DataCollection() 
     numberOfClusters=len(faultyTimeseriesIndexes[0])
     faulty_records_html=[]
@@ -419,7 +414,7 @@ class DQTestToolHelper:
         normalFeatures=pd.concat([normalFeatures,df_attributes])
     normalFrame=normalFeatures
     normalFrame=normalFrame.fillna(0)
-    normalFrame=normalFrame.replace(np.inf, 0)
+    normalFrameGeneral=normalFrame.replace(np.inf, 0)
 
 
 
@@ -430,9 +425,36 @@ class DQTestToolHelper:
 
     index=0
     for i in faultyTimeseriesIndexes[0]:
-        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFramePreprocessed.columns.values,'invalidityScore'))
+        df = pd.DataFrame(XWithInvalidityScores[i], columns=np.append(dataFrame.columns.values[:-2],'invalidityScore'))
         X=dataFramePreprocessed.columns.values[2:]
         Y=mse_attributes[i]
+        ########################################################
+        #1. Only use faulty attributes to generate the trees
+        ########################################################
+        faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,80)]
+        faulty_attributes=X[faulty_attributes_indexes]
+        ########################################################
+        mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
+
+        if len(categoricalColumns)>0:
+            completedf=pd.DataFrame(Y.reshape(-1, len(Y)),columns=X)
+
+
+            categoricaldf=pd.DataFrame()
+            categoricalColumnsEncoded=[]
+            for col in categoricalColumns:
+                with_col = [x for x in completedf.columns.values if x.startswith(col)] 
+                categoricalColumnsEncoded.append(with_col)
+                tempdf=completedf[with_col]
+                tempdf_mean=pd.DataFrame(tempdf.mean(axis = 1), columns=[col]) 
+                categoricaldf= pd.concat([categoricaldf, tempdf_mean], axis=1)
+            nonCategoricaldf=completedf.drop(list(np.concatenate(categoricalColumnsEncoded).flat), axis=1)
+            finaldf=pd.concat([nonCategoricaldf,categoricaldf],axis=1)
+            X=finaldf.columns.values
+            Y=finaldf.to_numpy()[0]
+        
+        #
+
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         df.to_sql('suspicious_i_temp_'+datasetId, con=db, if_exists='replace', index=False)
@@ -457,7 +479,11 @@ class DQTestToolHelper:
         faultyFrame=df_attributes
         faultyFrame=faultyFrame.fillna(0)
         faultyFrame=faultyFrame.replace(np.inf, 0)
-
+        ########################################################
+        #2. Only use faulty attributes to generate the trees
+        ########################################################
+        faultyFrame=faultyFrame[[col for col in faultyFrame if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State")) ]]           
+        normalFrame=normalFrameGeneral[[col for col in normalFrameGeneral if (col.startswith(tuple(faulty_attributes)) or col in ["label","timeseriesId"]) and (not col.startswith("Province_State"))]]
         ###############################################
         decisionTreeTrainingFrame=pd.concat([normalFrame,faultyFrame]).drop(['timeseriesId'],axis=1)
         decisionTreeTrainingFramePreprocessed=decisionTreeTrainingFrame
@@ -481,7 +507,6 @@ class DQTestToolHelper:
         cluster_interpretation.append(tree.interpret(treeCodeLines))"""
 
         df = df.style.apply(self.highlight_greaterthan,threshold=faultyThresholdRecords,column=['invalidityScore'], axis=1)
-        print(df)
         
 
         if invalidityScores[i]>=1.0:
