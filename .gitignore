@@ -23,3 +23,7 @@ static/model/*
 
 dictionary/
 results/
+
+.RData
+.Rhistory
+

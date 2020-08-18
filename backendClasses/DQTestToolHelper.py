@@ -474,8 +474,7 @@ class DQTestToolHelper:
         #faulty_attribute_index = np.where(dataFrameTimeseries.columns.values==faulty_attributes[0])[0][0]
         faulty_attribute_index=np.where(Y==max(Y))
         faulty_attribute=X[faulty_attribute_index]
-        h_axis=np.array(dataFrameTimeseries["time"])
-        print(h_axis)
+        h_axis=np.array(dataFrame["time"])
         #
         """h_axis=[datetime.datetime.strptime(d,"%m/%d/%Y").date() for d in h_axis]
         h_axis=np.array(h_axis)
@@ -483,11 +482,18 @@ class DQTestToolHelper:
         h_axis=np.array(t2)
         print(h_axis)"""
         #
-        v1_axis=np.array(dataFrameTimeseries[faulty_attribute])
+        #v1_axis=np.array(dataFrameTimeseries[faulty_attribute])
+        v1_axis=np.array(dataFrame[faulty_attribute])
         #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
         v_title=faulty_attribute
-        v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i][faulty_attribute]
-        h_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]["time"]
+        v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]#[faulty_attribute]
+        left=v1_red.add_suffix('_x')
+        right=dataFrame.add_suffix('_y')
+        v1_merge=pd.merge(left,right, left_on=dataFrame.columns.values[0]+'_x',right_on=dataFrame.columns.values[0]+'_y',how='left')#[faulty_attribute]
+        temp_str=faulty_attribute[0]+'_y'
+        v1_red=v1_merge[[temp_str]]
+        #h_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]["time"]
+        h_red=v1_merge["time"+"_x"]
         
         
         ################################################

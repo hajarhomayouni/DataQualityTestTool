@@ -152,7 +152,8 @@ class DataCollection:
             ax.xaxis.set_major_locator(DayLocator())
             plt.xticks(rotation=x_rotate)"""
 
-            dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_coordinates]
+            #dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_coordinates]
+            dates = [datetime.datetime.strptime(x, "%Y-%M-%d") for x in x_coordinates]
             x_coordinates=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
@@ -160,7 +161,7 @@ class DataCollection:
             plt.xticks(rotation=x_rotate)
             plt.plot(x_coordinates, y_coordinates,"o")
             
-            dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_red]
+            dates = [datetime.datetime.strptime(x, "%Y-%M-%d") for x in x_red]
             x_red=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
