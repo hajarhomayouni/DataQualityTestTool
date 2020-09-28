@@ -142,7 +142,7 @@ class DataCollection:
         plt.figure(figsize=(30,3))
         plt.title(y_title)
         #
-        if  x_red is not None:
+        if  x_red is not None:# and np.char.isnumeric(y_coordinates):
             fig, ax = plt.subplots()
             fig = plt.gcf() 
             fig.set_size_inches(30,3)
@@ -151,23 +151,23 @@ class DataCollection:
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
             ax.xaxis.set_major_locator(DayLocator())
             plt.xticks(rotation=x_rotate)"""
-
-            #dates = [datetime.datetime.strptime(x, "%m/%d/%Y") for x in x_coordinates]
-            dates = [datetime.datetime.strptime(x, "%Y-%M-%d") for x in x_coordinates]
+            dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_coordinates]
+            #dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_coordinates]
+            #dates = [datetime.datetime.strptime(x, "%M/%d/%y") for x in x_coordinates]
             x_coordinates=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
             ax.xaxis.set_major_locator(DayLocator())
             plt.xticks(rotation=x_rotate)
-            plt.plot(x_coordinates, y_coordinates,"o")
-            
-            dates = [datetime.datetime.strptime(x, "%Y-%M-%d") for x in x_red]
+            ax.plot(x_coordinates, y_coordinates.ravel(),"o")
+            ax.legend()
+            dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
             x_red=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
             ax.xaxis.set_major_locator(DayLocator())
             plt.xticks(rotation=x_rotate)
-            plt.plot(x_red, y_red,"o", color="red")
+            plt.plot(x_red, np.array(y_red).ravel(),"o", color="red")
         #
         else:
             plt.plot(x_coordinates, y_coordinates,"o")

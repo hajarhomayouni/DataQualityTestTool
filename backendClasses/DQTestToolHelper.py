@@ -47,7 +47,7 @@ class DQTestToolHelper:
    
    def importData(self,db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath):
     dataCollection=DataCollection()
-    dataFrame=dataCollection.importData(dataRecordsFilePath).tail(300000)
+    dataFrame=dataCollection.importData(dataRecordsFilePath)#.head(150)
     #dataFrame=dataFrame[['id','time','B0','B1']]
     dataFrame['status']='clean'
     dataFrame['invalidityScore']=0.0
@@ -393,11 +393,13 @@ class DQTestToolHelper:
     print(timeseriesFeatures)
     normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
     ######################
-    #approach2: tsfeatures 
+    """#approach2: tsfeatures 
     tsFeatures=TSFeatures()
     normalFeatures=pd.DataFrame()
     for i in normalTimeseriesIndexes[0]:
         partialNormalFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
+        print("******************")
+        print(partialNormalFrame)
         partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame)
         df_attributes=pd.DataFrame()
         #exclude last index which is timeseriesId
@@ -419,7 +421,7 @@ class DQTestToolHelper:
         normalFeatures=pd.concat([normalFeatures,df_attributes])
     normalFrame=normalFeatures
     normalFrame=normalFrame.fillna(0)
-    normalFrameGeneral=normalFrame.replace(np.inf, 0)
+    normalFrameGeneral=normalFrame.replace(np.inf, 0)"""
 
 
 
@@ -437,6 +439,7 @@ class DQTestToolHelper:
         X=list(dataFramePreprocessed.columns.values[2:])
         if grouping_attr:
             X.remove(grouping_attr)
+       
         X=np.array(X)
         Y=mse_attributes[i]
         ########################################################
@@ -448,7 +451,7 @@ class DQTestToolHelper:
             faulty_attributes_indexes=[i for i,v in enumerate(Y) if v > np.percentile(Y,90)]
             faulty_attributes=X[faulty_attributes_indexes]
         ########################################################
-        mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore'],axis=1))
+        mask,categoricalColumns=dataCollection.find_categorical(df.drop([df.columns.values[0],'invalidityScore',grouping_attr],axis=1))
 
         if len(categoricalColumns)>0:
             completedf=pd.DataFrame(Y.reshape(-1, len(Y)),columns=X)
@@ -466,7 +469,6 @@ class DQTestToolHelper:
             finaldf=pd.concat([nonCategoricaldf,categoricaldf],axis=1)
             X=finaldf.columns.values
             Y=finaldf.to_numpy()[0]
-        
         ##############################################################
         #Prepare actual, predicted vs time for data_visualization plot
         ##############################################################
@@ -506,7 +508,8 @@ class DQTestToolHelper:
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
+        decisionTreeImageUrls=[]
+        """faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
         df_attributes=pd.DataFrame()
         faultyFeatures=tsFeatures.extract_features(faultyFrame)
         attribute_index=0
@@ -544,10 +547,10 @@ class DQTestToolHelper:
         faulty_attributes=faultyFrame.columns.values[:-2]
         treeModel=tree.train(decisionTreeTrainingFramePreprocessed,faulty_attributes,'label' )
         numberOfTrees=3
-        decisionTreeImageUrls=[]
         for j in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
         ###############################################
+        """
 
         """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
         treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
