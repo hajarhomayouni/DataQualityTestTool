@@ -35,6 +35,7 @@ from tsfresh import extract_relevant_features
 import re
 import decimal
 import matplotlib.dates as mdates
+import matplotlib.colors as mcolors
 
 
 class DQTestToolHelper:
@@ -374,7 +375,19 @@ class DQTestToolHelper:
     suspicious_cluster_scores_fig_url=[]
     faulty_timeseries_fig_url=[]
     suspicious_timeseries_fig_url=[]
-    db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")    
+    db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")   
+    ##############################################################
+    ####Prepare multicolor valid data for data visualization plot
+    #TODO: Move it to for loop for DT?############################
+    ##############################################################
+    axis=[]
+    for i in normalTimeseriesIndexes[0]:
+        normalFrameTimeseries=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i]
+        normalFrame=pd.merge(dataFrame,normalFrameTimeseries[dataFrame.columns.values[0]],how='inner',on=dataFrame.columns.values[0])
+        axis.append(normalFrame)
+        print("********Normal Frame**********")
+        print(normalFrame)
+    ###############################################################
     """dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
     normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
     normalTimeseries["label"]=0
@@ -467,34 +480,31 @@ class DQTestToolHelper:
                 categoricaldf= pd.concat([categoricaldf, tempdf_mean], axis=1)
             nonCategoricaldf=completedf.drop(list(np.concatenate(categoricalColumnsEncoded).flat), axis=1)
             finaldf=pd.concat([nonCategoricaldf,categoricaldf],axis=1)
+            """if True: #if lowest-level grouping attribute:
+                finaldf=finaldf.drop(['BaseName'],axis=1)"""
             X=finaldf.columns.values
             Y=finaldf.to_numpy()[0]
         ##############################################################
         #Prepare actual, predicted vs time for data_visualization plot
         ##############################################################
 
-        #faulty_attribute_index = np.where(dataFrameTimeseries.columns.values==faulty_attributes[0])[0][0]
         faulty_attribute_index=np.where(Y==max(Y))
         faulty_attribute=X[faulty_attribute_index]
-        h_axis=np.array(dataFrame["time"])
-        #
-        """h_axis=[datetime.datetime.strptime(d,"%m/%d/%Y").date() for d in h_axis]
-        h_axis=np.array(h_axis)
-        t2=[mdates.date2num(line) for line in t1]
-        h_axis=np.array(t2)
-        print(h_axis)"""
-        #
-        #v1_axis=np.array(dataFrameTimeseries[faulty_attribute])
-        v1_axis=np.array(dataFrame[faulty_attribute])
+        #h_axis=np.array(dataFrame["time"])
+        #v1_axis=np.array(dataFrame[faulty_attribute])
         #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
         v_title=faulty_attribute
         v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]#[faulty_attribute]
+        """if True: #if lowest-level grouping attribute != grouping_attribute (we have multiple grouping attributes), then show the values for the lowest-level one
+            #lowest-level attribute: 'BaseName'
+            lowestLevelGroupingAttr=dataFrame.loc[dataFrame['id']==v1_red['id'].astype('int64')[0]].iloc[0]['BaseName']
+            v1_axis=np.array(dataFrame.loc[dataFrame['BaseName']==lowestLevelGroupingAttr][faulty_attribute])
+            h_axis=np.array(dataFrame.loc[dataFrame['BaseName']==lowestLevelGroupingAttr]["time"])"""            
         left=v1_red.add_suffix('_x')
         right=dataFrame.add_suffix('_y')
         v1_merge=pd.merge(left,right, left_on=dataFrame.columns.values[0]+'_x',right_on=dataFrame.columns.values[0]+'_y',how='left')#[faulty_attribute]
         temp_str=faulty_attribute[0]+'_y'
         v1_red=v1_merge[[temp_str]]
-        #h_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]["time"]
         h_red=v1_merge["time"+"_x"]
         
         
@@ -558,17 +568,16 @@ class DQTestToolHelper:
 
         df = df.style.apply(self.highlight_greaterthan,threshold=faultyThresholdRecords,column=['invalidityScore'], axis=1)
         
-
         if invalidityScores[i]>=1.0:
             faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.render())
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
             faulty_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-            faulty_timeseriies_fig_url.append(dataCollection.build_graph(h_axis,v1_axis,10,90,v_title,h_red,v1_red))
+            faulty_timeseriies_fig_url.append(dataCollection.build_graph(axis,axis,10,90,v_title,h_red,v1_red,faulty_attribute))
         else:
             suspicious_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_suspicious" value="'+str(i)+'"/> </br>'+df.render())
             suspicious_cluster_dt_url.append(decisionTreeImageUrls)
             suspicious_cluster_scores_fig_url.append(dataCollection.build_graph(X,Y))
-            suspicious_timeseries_fig_url.append(dataCollection.build_graph(h_axis,v1_axis,10,90,v_title,h_red,v1_red))
+            suspicious_timeseries_fig_url.append(dataCollection.build_graph(axis,axis,10,90,v_title,h_red,v1_red,faulty_attribute))
 
     return numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url,faulty_timeseries_fig_url,suspicious_timeseries_fig_url
 

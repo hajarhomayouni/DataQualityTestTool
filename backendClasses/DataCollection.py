@@ -11,6 +11,8 @@ mpl.use('Agg')
 import pylab as plt
 import datetime
 from matplotlib.dates import  DateFormatter, DayLocator
+import matplotlib.colors as mcolors
+import random
 
 import io
 import base64
@@ -135,40 +137,46 @@ class DataCollection:
         return recordSet
 
     @staticmethod
-    def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None):
+    def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None,faulty_attribute=None):
         img = io.BytesIO()
         plt.rcParams.update({'font.size': font_size})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
         plt.title(y_title)
-        #
+        #########################################
+        #This part is for data visualization plot
+        ########################################
         if  x_red is not None:# and np.char.isnumeric(y_coordinates):
             fig, ax = plt.subplots()
             fig = plt.gcf() 
             fig.set_size_inches(30,3)
             fig.autofmt_xdate()
-            """plt.axes(ax)
-            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
-            ax.xaxis.set_major_locator(DayLocator())
-            plt.xticks(rotation=x_rotate)"""
-            dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_coordinates]
-            #dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_coordinates]
-            #dates = [datetime.datetime.strptime(x, "%M/%d/%y") for x in x_coordinates]
-            x_coordinates=dates
-            plt.axes(ax)
-            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
-            ax.xaxis.set_major_locator(DayLocator())
-            plt.xticks(rotation=x_rotate)
-            ax.plot(x_coordinates, y_coordinates.ravel(),"o")
+            for df in x_coordinates: 
+             #
+             #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in np.array(df['time'])]
+             dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in np.array(df['time'])]
+             #dates = [datetime.datetime.strptime(x, "%M/%d/%y") for x in x_coordinates]
+             colors=list(mcolors.CSS4_COLORS)
+             color=random.choice(colors)        
+             x_coordinates=dates
+             plt.axes(ax)
+             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+             ax.xaxis.set_major_locator(DayLocator())
+             plt.xticks(rotation=x_rotate)
+             ax.plot(x_coordinates, np.array(df[faulty_attribute]).ravel(),"o",color=color)
+             #
             ax.legend()
-            dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
+            #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
+            dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_red]
             x_red=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
             ax.xaxis.set_major_locator(DayLocator())
             plt.xticks(rotation=x_rotate)
             plt.plot(x_red, np.array(y_red).ravel(),"o", color="red")
-        #
+        ############################################
+        #This part is for s-score per attribute plot
+        ############################################
         else:
             plt.plot(x_coordinates, y_coordinates,"o")
         plt.savefig(img, format='png',bbox_inches='tight')
