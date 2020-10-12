@@ -222,7 +222,7 @@ class LSTMAutoencoder(PatternDiscovery):
     model.compile(optimizer=opt, loss="mse")
     model.summary()
     # fit model
-    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=10,batch_size=X.shape[0], verbose=1)
+    model.fit(np.delete(X,[0,1],axis=2), np.delete(X,[0,1],axis=2), epochs=50,batch_size=X.shape[0], verbose=1)
     return model,dataFrameTimeseries
 
 
