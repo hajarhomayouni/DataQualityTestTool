@@ -153,8 +153,8 @@ class DataCollection:
             fig.autofmt_xdate()
             for df in x_coordinates: 
              #
-             dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in np.array(df['time'])]
-             #dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in np.array(df['time'])]
+             #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in np.array(df['time'])]
+             dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in np.array(df['time'])]
              #dates = [datetime.datetime.strptime(x, "%M/%d/%y") for x in x_coordinates]
              colors=list(mcolors.CSS4_COLORS)
              color=random.choice(colors)        
@@ -171,8 +171,8 @@ class DataCollection:
              ax.plot(x_coordinates, np.array(df[faulty_attribute]).ravel(),"o",color=color)
              #
             ax.legend()
-            dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
-            #dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_red]
+            #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
+            dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_red]
             x_red=dates
             plt.axes(ax)
             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))

@@ -9,6 +9,8 @@ from rpy2.robjects.conversion import localconverter
 class TSFeatures:
 
     def extract_features(self, timeseries):
+        print("timeseries")
+        print(timeseries)
         oddstream=importr('oddstream')
 
         #r_timeseries = pandas2ri.py2ri(timeseries)
