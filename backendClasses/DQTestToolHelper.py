@@ -388,14 +388,8 @@ class DQTestToolHelper:
         print("********Normal Frame**********")
         print(normalFrame)
     ###############################################################
-
-
-
-    #######################
     faulty_cluster_dt_url=[]
     suspicious_cluster_dt_url=[]
-
-
     index=0
     for i in faultyTimeseriesIndexes[0]:
         #########################################################
@@ -435,11 +429,8 @@ class DQTestToolHelper:
         ##############################################################
         #Prepare actual, predicted vs time for data_visualization plot
         ##############################################################
-
         faulty_attribute_index=np.where(Y==max(Y))
         faulty_attribute=X[faulty_attribute_index]
-        #h_axis=np.array(dataFrame["time"])
-        #v1_axis=np.array(dataFrame[faulty_attribute])
         #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
         v_title=faulty_attribute
         v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]#[faulty_attribute]
@@ -463,9 +454,11 @@ class DQTestToolHelper:
         #approach: tsfeatures 
         tsFeatures=TSFeatures()
         normalFeatures=pd.DataFrame()
+        print("***Faulty Attribute*****")
+        print(faulty_attribute)
         for i in normalTimeseriesIndexes[0]:
                 partialNormalFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
-                partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame[faulty_attributes])
+                partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame[faulty_attribute])
                 print("partialNormalFeatures")
                 print(partialNormalFeatures)
                 df_attributes=pd.DataFrame()
@@ -488,7 +481,7 @@ class DQTestToolHelper:
         decisionTreeImageUrls=[]
         faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
         df_attributes=pd.DataFrame()
-        faultyFeatures=tsFeatures.extract_features(faultyFrame[faulty_attributes])
+        faultyFeatures=tsFeatures.extract_features(faultyFrame[faulty_attribute])
         print("**************&&")
         print(faultyFeatures)
         attribute_index=0

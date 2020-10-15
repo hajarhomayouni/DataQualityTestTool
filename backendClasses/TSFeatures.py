@@ -12,13 +12,13 @@ class TSFeatures:
         print("timeseries")
         print(timeseries)
         oddstream=importr('oddstream')
-
-        #r_timeseries = pandas2ri.py2ri(timeseries)
         with localconverter(ro.default_converter + pandas2ri.converter):
             for col in timeseries.columns.values:
-                timeseries[col]=timeseries[col].astype(str) 
-            #r_timeseries = ro.conversion.py2rpy(timeseries)
+                print("col")
+                print(col)
+                timeseries[col]=timeseries[col].astype(str)
+            print("timeseries after****")
+            print(timeseries)
             features=oddstream.extract_tsfeatures(timeseries)
-            #features= ro.conversion.rpy2py(features)
             return features
         return []
