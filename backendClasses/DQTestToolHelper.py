@@ -165,7 +165,7 @@ class DQTestToolHelper:
     cols=np.append(cols,'invalidityScore')
     #TODO: remove duplicate records based on value of IDs (after merging timeseris into one 2D array)
     invalidityScoresPerRecord=pd.DataFrame(temp, columns=cols)['invalidityScore']
-    faultyThresholdRecords=np.percentile(invalidityScoresPerRecord,90)    
+    faultyThresholdRecords=np.percentile(invalidityScoresPerRecord,85)    
     #
     E=set()
     knownFaults=pd.read_sql(sql="select distinct * from knownFaults_"+datasetId,con=db)
@@ -377,42 +377,20 @@ class DQTestToolHelper:
     suspicious_timeseries_fig_url=[]
     db.execute("Update dataRecords_"+datasetId+" set status='invalid' where status like 'actual%' ")   
     ##############################################################
-    ####Prepare multicolor valid data for data visualization plot
-    #TODO: Move it to for loop for DT?############################
-    ##############################################################
     axis=[]
-    for i in normalTimeseriesIndexes[0]:
-        normalFrameTimeseries=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i]
-        normalFrame=pd.merge(dataFrame,normalFrameTimeseries[dataFrame.columns.values[0]],how='inner',on=dataFrame.columns.values[0])
-        axis.append(normalFrame)
-        print("********Normal Frame**********")
-        print(normalFrame)
-    ###############################################################
-    """dataFrameTimeseries=dataFrameTimeseries.drop([dataFrameTimeseries.columns.values[0]],axis=1)
-    normalTimeseries=pd.DataFrame(data=np.transpose(normalTimeseriesIndexes),columns=["timeseriesId"])
-    normalTimeseries["label"]=0
-    normalDataFrameTimeseries=pd.merge(dataFrameTimeseries,normalTimeseries, on=["timeseriesId"])
-    faultyTimeseries=pd.DataFrame(data=np.transpose(faultyTimeseriesIndexes),columns=["timeseriesId"])
-    faultyTimeseries["label"]=1
-    faultyDataFrameTimeseries=pd.merge(dataFrameTimeseries,faultyTimeseries, on=["timeseriesId"])
-    dataFrameTimeseries=pd.concat([normalDataFrameTimeseries,faultyDataFrameTimeseries])
-    labels=faultyTimeseries.append(normalTimeseries,ignore_index=True).sort_values('timeseriesId')['label']"""
-    #####################
-    #approach1: tsfresh features
-    """
-    timeseriesFeatures=extract_features(dataFrameTimeseries.drop(['label'],axis=1), column_id="timeseriesId",column_sort="time",chunksize=2)
-    timeseriesFeatures['timeseriesId'] = timeseriesFeatures.index
-    print("timeseiresFeatures*************")
-    print(timeseriesFeatures)
-    normalFrame=pd.merge(timeseriesFeatures,normalTimeseries, on=["timeseriesId"])"""
-    ######################
-    """#approach2: tsfeatures 
     tsFeatures=TSFeatures()
     normalFeatures=pd.DataFrame()
     for i in normalTimeseriesIndexes[0]:
+        ###########################################################
+        #Prepapre multicolor valid data for data visualization plot
+        ###########################################################
+        normalFrameTimeseries=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i]
+        normalFrame=pd.merge(dataFrame,normalFrameTimeseries[dataFrame.columns.values[0]],how='inner',on=dataFrame.columns.values[0])
+        axis.append(normalFrame)
+        ##########################################################
+        #Extract timeseries features from normal subsequences
+        #########################################################
         partialNormalFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
-        print("******************")
-        print(partialNormalFrame)
         partialNormalFeatures=tsFeatures.extract_features(partialNormalFrame)
         df_attributes=pd.DataFrame()
         #exclude last index which is timeseriesId
@@ -422,27 +400,16 @@ class DQTestToolHelper:
             data=np.array(attribute_features)
             df_attribute=pd.DataFrame(data=data[None],columns=cols)
             df_attributes= pd.concat([df_attributes, df_attribute], axis=1)
-
-            #df_attributes['label']=0
-            #df_attributes['timeseriesId']=i
-            #df_attributes.assign(label=[0])
-            #df_attributes.assign(timeseriesId=[i])
-
             index+=1
         df_attributes.insert(loc=len(df_attributes.columns), column='label', value=0)
         df_attributes.insert(loc=len(df_attributes.columns), column='timeseriesId', value=i)
         normalFeatures=pd.concat([normalFeatures,df_attributes])
     normalFrame=normalFeatures
     normalFrame=normalFrame.fillna(0)
-    normalFrameGeneral=normalFrame.replace(np.inf, 0)"""
-
-
-
+    normalFrameGeneral=normalFrame.replace(np.inf, 0)
     #######################
     faulty_cluster_dt_url=[]
     suspicious_cluster_dt_url=[]
-
-
     index=0
     for i in faultyTimeseriesIndexes[0]:
         #########################################################
@@ -468,8 +435,6 @@ class DQTestToolHelper:
 
         if len(categoricalColumns)>0:
             completedf=pd.DataFrame(Y.reshape(-1, len(Y)),columns=X)
-
-
             categoricaldf=pd.DataFrame()
             categoricalColumnsEncoded=[]
             for col in categoricalColumns:
@@ -480,34 +445,22 @@ class DQTestToolHelper:
                 categoricaldf= pd.concat([categoricaldf, tempdf_mean], axis=1)
             nonCategoricaldf=completedf.drop(list(np.concatenate(categoricalColumnsEncoded).flat), axis=1)
             finaldf=pd.concat([nonCategoricaldf,categoricaldf],axis=1)
-            """if True: #if lowest-level grouping attribute:
-                finaldf=finaldf.drop(['BaseName'],axis=1)"""
             X=finaldf.columns.values
             Y=finaldf.to_numpy()[0]
         ##############################################################
         #Prepare actual, predicted vs time for data_visualization plot
         ##############################################################
-
         faulty_attribute_index=np.where(Y==max(Y))
         faulty_attribute=X[faulty_attribute_index]
-        #h_axis=np.array(dataFrame["time"])
-        #v1_axis=np.array(dataFrame[faulty_attribute])
         #v2_axis=np.array(yhatWithInvalidityScores)[:,:,faulty_attribute_index].flatten()
         v_title=faulty_attribute
         v1_red=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId'] == i]#[faulty_attribute]
-        """if True: #if lowest-level grouping attribute != grouping_attribute (we have multiple grouping attributes), then show the values for the lowest-level one
-            #lowest-level attribute: 'BaseName'
-            lowestLevelGroupingAttr=dataFrame.loc[dataFrame['id']==v1_red['id'].astype('int64')[0]].iloc[0]['BaseName']
-            v1_axis=np.array(dataFrame.loc[dataFrame['BaseName']==lowestLevelGroupingAttr][faulty_attribute])
-            h_axis=np.array(dataFrame.loc[dataFrame['BaseName']==lowestLevelGroupingAttr]["time"])"""            
         left=v1_red.add_suffix('_x')
         right=dataFrame.add_suffix('_y')
         v1_merge=pd.merge(left,right, left_on=dataFrame.columns.values[0]+'_x',right_on=dataFrame.columns.values[0]+'_y',how='left')#[faulty_attribute]
         temp_str=faulty_attribute[0]+'_y'
         v1_red=v1_merge[[temp_str]]
         h_red=v1_merge["time"+"_x"]
-        
-        
         ################################################
         #Update status of suspicious groups in database@
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -519,7 +472,7 @@ class DQTestToolHelper:
         #Add Decision Tree for each Timesereis
         #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         decisionTreeImageUrls=[]
-        """faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
+        faultyFrame=dataFrameTimeseries.loc[dataFrameTimeseries['timeseriesId']==i].drop([dataFrameTimeseries.columns.values[0],'time','timeseriesId'],axis=1)
         df_attributes=pd.DataFrame()
         faultyFeatures=tsFeatures.extract_features(faultyFrame)
         attribute_index=0
@@ -560,14 +513,7 @@ class DQTestToolHelper:
         for j in range(numberOfTrees):
             decisionTreeImageUrls.append(tree.visualize(treeModel, faulty_attributes, ['valid','suspicious'],tree_id=j))
         ###############################################
-        """
-
-        """treeCodeLines=tree.treeToCode(treeModel,faulty_attributes)
-        treeRules.append(tree.treeToRules(treeModel,faulty_attributes))
-        cluster_interpretation.append(tree.interpret(treeCodeLines))"""
-
         df = df.style.apply(self.highlight_greaterthan,threshold=faultyThresholdRecords,column=['invalidityScore'], axis=1)
-        
         if invalidityScores[i]>=1.0:
             faulty_records_html.append('<label for="group">Timeseries_'+str(i)+'</label><input type="checkbox" name="Group_faulty" value="'+str(i)+'" checked> </br>'+df.render())
             faulty_cluster_dt_url.append(decisionTreeImageUrls)
