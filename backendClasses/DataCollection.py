@@ -139,7 +139,7 @@ class DataCollection:
     @staticmethod
     def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None,faulty_attribute=None):
         img = io.BytesIO()
-        #plt.rcParams.update({'font.size': font_size})
+        plt.rcParams.update({'font.weight': 'bold'})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
         plt.title(y_title)
@@ -166,8 +166,8 @@ class DataCollection:
              ax.xaxis.set_major_locator(DayLocator())
              plt.xticks(rotation=x_rotate)
              #plt.title(y_title+" over time")
-             plt.xlabel('Date')
-             plt.ylabel(y_title)
+             plt.xlabel('Date',fontweight='bold',fontsize=15)
+             plt.ylabel(y_title,fontweight='bold',fontsize=15)
              ax.plot(x_coordinates, np.array(df[faulty_attribute]).ravel(),"o",color=color)
              #
             ax.legend()
@@ -185,8 +185,8 @@ class DataCollection:
         else:
             plt.xticks(rotation=90)
             #plt.title('s-score per Attribute')
-            plt.xlabel('Attribute Name')
-            plt.ylabel('s-score')
+            plt.xlabel('Attribute Name',fontweight='bold',fontsize=15)
+            plt.ylabel('s-score',fontweight='bold',fontsize=15)
             plt.plot(x_coordinates, y_coordinates,"o")
         plt.savefig(img, format='png',bbox_inches='tight')
         img.seek(0)
