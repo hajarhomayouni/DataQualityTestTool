@@ -29,7 +29,11 @@ class H2oRandomForest(Interpretation):
     def visualize(self,model,featuresList, targetValues, tree_id=0):
         randName=str(random.randint(1,100000000))
         mojo_file_name = "./static/mojo/mojo_"+randName+".zip"
+<<<<<<< HEAD
         h2o_jar_path= './venv/lib/python3.6/site-packages/h2o/h2o.jar'
+=======
+        h2o_jar_path= '/home/hajar.homayouni/DataQualityTestTool/venv3/lib/python3.6/site-packages/h2o/h2o.jar'
+>>>>>>> 0fb3916b33c9543d9cbb2fedbfed806930c9a6d7
         mojo_full_path = mojo_file_name
         gv_file_path = "./static/mojo/gv_"+randName+".gv"
         image_file_path="./static/images/img_"+randName+".png"

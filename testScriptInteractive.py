@@ -16,6 +16,7 @@ datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath=sys.argv[1],trained
 #
 #hyperParameters={'hidden': [100,100], 'epochs': 5}
 win_size=None
+grouping_attr=None
 hyperParameters={'win_size='+str(win_size)}
 numberOfSuspiciousDataFrame=pd.read_sql(sql="select count(*) from dataRecords_"+datasetId+ " where status like 'suspicious'",con=db)
 numberOfSuspicious=numberOfSuspiciousDataFrame[numberOfSuspiciousDataFrame.columns.values[0]].values[0]
@@ -24,7 +25,7 @@ dataFrame=pd.read_sql(sql="SELECT * FROM dataRecords_"+datasetId, con=db)
 AFdataFrameOld=pd.DataFrame(columns=[dataFrame.columns.values[0]])
 
 #
-faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,win_size=None)    
+faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr=None,win_size=None)    
 
 faultyRecordFrame.to_sql('faultyRecordFrame_'+datasetId, con=db, if_exists='replace', index=False)
 db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from faultyRecordFrame_"+datasetId+")")
@@ -55,7 +56,11 @@ for i in range(0):
         truePositiveRateGroup=truePositiveRateGroup/float(len(faultyTimeseriesIndexes[0]))"""
     #
 
+<<<<<<< HEAD
     faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,win_size=None)
+=======
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr=None,win_size=None)    
+>>>>>>> 0fb3916b33c9543d9cbb2fedbfed806930c9a6d7
     faultyRecordFrame.to_sql('faultyRecordFrame_'+datasetId, con=db, if_exists='replace', index=False)
     db.execute("Update dataRecords_"+datasetId+" set status='suspicious' where  "+dataFrame.columns.values[0]+" in (select "+dataFrame.columns.values[0]+ " from faultyRecordFrame_"+datasetId+")")
     db.execute("Drop table faultyRecordFrame_"+datasetId) 

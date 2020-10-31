@@ -1,18 +1,18 @@
 #require a dot before name if running with flask####
-from backendClasses.DQTestToolHelper import DQTestToolHelper
-from backendClasses.DataCollection import DataCollection
-from backendClasses.PatternDiscovery import PatternDiscovery
-from backendClasses.SklearnDecisionTree import SklearnDecisionTree
-from backendClasses.SklearnRandomForest import SklearnRandomForest
-from backendClasses.H2oGradientBoosting import H2oGradientBoosting
-from backendClasses.H2oRandomForest import H2oRandomForest
-from backendClasses.H2oKmeans import H2oKmeans
-from backendClasses.SOM import SOM
-from backendClasses.Testing import Testing
-from backendClasses.Autoencoder import Autoencoder
-from backendClasses.Pyod import Pyod
-from db import get_db
-from backendClasses.Evaluation import Evaluation
+from .backendClasses.DQTestToolHelper import DQTestToolHelper
+from .backendClasses.DataCollection import DataCollection
+from .backendClasses.PatternDiscovery import PatternDiscovery
+from .backendClasses.SklearnDecisionTree import SklearnDecisionTree
+from .backendClasses.SklearnRandomForest import SklearnRandomForest
+from .backendClasses.H2oGradientBoosting import H2oGradientBoosting
+from .backendClasses.H2oRandomForest import H2oRandomForest
+from .backendClasses.H2oKmeans import H2oKmeans
+from .backendClasses.SOM import SOM
+from .backendClasses.Testing import Testing
+from .backendClasses.Autoencoder import Autoencoder
+from .backendClasses.Pyod import Pyod
+from .db import get_db
+from .backendClasses.Evaluation import Evaluation
 #####################################################
 import datetime
 import os
@@ -50,6 +50,7 @@ def importDataFrame():
         constraintDiscoveryMethod=request.form.get("constraintDiscovery")
         interpretationMethod= request.form.get("interpretation")
         clusteringMethod= request.form.get("clustering")
+        grouping_attr= request.form.get("grouping_attr")
         error = None
         if request.files.get('trainedModel', None):
             trainedModelFile=request.files['trainedModel']
@@ -69,7 +70,7 @@ def importDataFrame():
             db=get_db()
             dQTestToolHelper=DQTestToolHelper()
             datasetId=dQTestToolHelper.importData(db,dataRecordsFilePath,trainedModelFilePath,knownFaultsFilePath)
-            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod))
+            return redirect(url_for('DQTestTool.validate', datasetId=datasetId, constraintDiscoveryMethod=constraintDiscoveryMethod, interpretationMethod=interpretationMethod, clusteringMethod=clusteringMethod,grouping_attr=grouping_attr))
         flash(error)
 
     return render_template('import.html')
@@ -85,6 +86,7 @@ def validate():
     constraintDiscoveryMethod=request.args.get('constraintDiscoveryMethod')
     interpretationMethod=request.args.get('interpretationMethod')
     clusteringMethod=request.args.get('clusteringMethod')
+    grouping_attr=request.args.get('grouping_attr')
     dQTestToolHelper=DQTestToolHelper()
     dataCollection=DataCollection()
     testing=Testing()
@@ -123,7 +125,7 @@ def validate():
                     db.execute("Update dataRecords_"+datasetId+" set  status='valid' where status='suspicious_"+str(i)+"'")
         
     
-    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,TP_T,win_size=None)   
+    faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold,faultyThresholdRecords,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFramePreprocessed,dataFrameTimeseries,y=dQTestToolHelper.constraintDiscoveryAndFaultDetection(db,datasetId,dataFrame,constraintDiscoveryMethod,AFdataFrameOld,suspiciousDataFrame,hyperParameters,grouping_attr,TP_T,win_size=None)   
     numberOfClusters=0
     faulty_records_html=[]
     faulty_cluster_scores_fig_url=[]
@@ -132,7 +134,7 @@ def validate():
     suspicious_cluster_scores_fig_url=[]
     suspicious_cluster_dt_url=[]
     if constraintDiscoveryMethod=="LSTMAutoencoder":
-        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords)
+        numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url,faulty_timeseries_fig_url,suspicious_timeseries_fig_url=dQTestToolHelper.faultyTimeseriesInterpretation(db,dataFrame,interpretationMethod,datasetId,dataFramePreprocessed,yhatWithInvalidityScores,XWithInvalidityScores,XRawWithInvalidityScores,mse_attributes,faultyTimeseriesIndexes,normalTimeseriesIndexes,dataFrameTimeseries,y,invalidityScores,faultyThresholdRecords,grouping_attr)
         groupIDs=','.join(str(x) for x in list(faultyTimeseriesIndexes[0]))
     else:
         numberOfClusters,faulty_records_html,suspicious_records_html,faulty_cluster_scores_fig_url,suspicious_cluster_scores_fig_url,faulty_cluster_dt_url,suspicious_cluster_dt_url=dQTestToolHelper.faultInterpretation(db,datasetId,constraintDiscoveryMethod,clusteringMethod,interpretationMethod,dataFrame,faultyRecordFrame,normalRecordFrame,invalidityScoresPerFeature,invalidityScores,faultyThreshold)
@@ -140,7 +142,7 @@ def validate():
     db.commit()
     db.close()
 
-    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url, groupIDs=groupIDs)
+    return render_template('validate.html', faulty_data='@'.join(faulty_records_html),suspicious_data='@'.join(suspicious_records_html), datasetId=datasetId, numberOfClusters=numberOfClusters, faulty_fig_urls=faulty_cluster_scores_fig_url,suspicious_fig_urls=suspicious_cluster_scores_fig_url,faulty_cluster_dt_url=faulty_cluster_dt_url, suspicious_cluster_dt_url=suspicious_cluster_dt_url,faulty_timeseries_fig_url=faulty_timeseries_fig_url, suspicious_timeseries_fig_url=suspicious_timeseries_fig_url,groupIDs=groupIDs)
      
 @bp.route('/evaluation', methods=["GET","POST"])
 def evaluation():

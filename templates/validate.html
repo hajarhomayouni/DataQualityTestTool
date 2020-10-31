@@ -19,8 +19,9 @@
     <strong>Confirmed Faulty Groups</strong>
     </p>
     {%for item in faulty_data.split('@')%}
-	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="faulty_group">{{ item | safe }}</div></br>
+	    <div style="height:200px;width:2000px;border:1px solid #ccc;overflow:auto;" name="faulty_group">{{ item | safe }}</div></br>
 	    <img src='{{faulty_fig_urls[loop.index0]}}' align="left" ></img></br>
+	    <img src='{{faulty_timeseries_fig_url[loop.index0]}}' align="left" ></img></br>
 	    {%for image in faulty_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}
@@ -31,6 +32,7 @@
     {%for item in suspicious_data.split('@')%}
 	    <div style="height:200px;width:900px;border:1px solid #ccc;overflow:auto;" name="suspicious_group">{{ item | safe }}</div></br>
 	    <img src='{{suspicious_fig_urls[loop.index0]}}' align="left" ></img></br>
+	    <img src='{{suspicious_timeseries_fig_url[loop.index0]}}' align="left" ></img></br>
 	    {%for image in suspicious_cluster_dt_url[loop.index0] %}
 	    	<img src="{{image}}" style="width:600px;height:300px;"></img>
 	    {% endfor %}

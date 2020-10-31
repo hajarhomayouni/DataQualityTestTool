@@ -7,7 +7,13 @@ import numpy as np
 import csv
 import matplotlib as mpl
 mpl.use('Agg')
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import pylab as plt
+import datetime
+from matplotlib.dates import  DateFormatter, DayLocator
+import matplotlib.colors as mcolors
+import random
+
 import io
 import base64
 from sklearn import preprocessing
@@ -15,31 +21,55 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import Binarizer
-
-
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
+import matplotlib.dates as mdates
 class DataCollection:
 
     
     @staticmethod
     def importData(csvPath):
-        return pd.read_csv(csvPath,index_col=0)
+        return pd.read_csv(csvPath,index_col=0, error_bad_lines=False)
         #return pd.DataFrame.from_csv(csvPath)
 
-    def preprocess(self,dataFrame):
+    def preprocess(self,dataFrame,grouping_attr=None):
         #proprocess null data
-        dataFrame=dataFrame.fillna(9999)
+        dataFrame=dataFrame.fillna(-1)
 
-        """categoricalColumns=self.findCategorical(dataFrame)
-        print(categoricalColumns)
-        le=OneHotEncoder()
+
+        categorical_feature_mask, categoricalColumns = self.find_categorical(dataFrame)
+        if grouping_attr and grouping_attr in categoricalColumns:
+            categoricalColumns.remove(grouping_attr)
+        
+        #1. similar to one-hot encoding
+        if len(categoricalColumns)>0:
+            tempdf=pd.get_dummies(dataFrame[categoricalColumns],columns=categoricalColumns)
+            dataFrame=dataFrame.drop(categoricalColumns,axis=1)
+            dataFrame=pd.concat([dataFrame, tempdf], axis=1)
+
+        #2. remove categorical columns
+        #dataFrame=dataFrame.drop([categoricalColumns], axis=1)
+        """for col in categoricalColumns:
+            if col!="time":
+                del dataFrame[col]"""        
+
+        #3. labelencoding
+        """le = LabelEncoder()
         for col in categoricalColumns:
-            data=dataFrame[col]
-            le.fit(data)
-            dataFrame[col]=le.transform(dataFrame[col])"""
+            if col!="id" and col!="time":
+                dataFrame[col] = dataFrame[col].astype('str')
+                le.fit(dataFrame[col])
+                dataFrame[col]=le.transform(dataFrame[col])"""
+                
+        #4. One-hot encoding
+        """ohe = OneHotEncoder(categorical_features = categorical_feature_mask, sparse=False )
+        dataFrame=ohe.fit_transform(dataFrame)"""
+
 
         for column in dataFrame.columns:
             #if dataFrame[column].dtype==np.number:
-            if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            #if self.is_number(dataFrame.iloc[1][column]) and column!="id" and column!="time":
+            if  is_numeric_dtype(dataFrame[column]) and column!="id" and column!="time":
                 #1
                 min_max=MinMaxScaler(feature_range=(0, 1))
                 dataFrame[[column]]=min_max.fit_transform(dataFrame[[column]])
@@ -58,16 +88,22 @@ class DataCollection:
         return dataFrame
 
 
+    def findSubarray(array, subarray):
+        len_b = len(subarray)
+        for i in range(len(array)):  
+            if array[i:i+len_b] == subarray:
+                return i,i+len_b 
+
+
+    def find_categorical(self, dataFrame):
+        dataFrame=dataFrame.fillna(-1)
+        categorical_feature_mask = dataFrame.dtypes==object
+        categoricalColumns = dataFrame.columns[categorical_feature_mask].tolist()
+        if "time" in categoricalColumns:
+            categoricalColumns.remove("time")
+        return categorical_feature_mask,categoricalColumns
 
     
-    def findCategorical(self,df_data):
-        categorical_columns=[]
-        for column in df_data.columns.values:
-            if self.is_number(df_data.iloc[1][column])==False:
-                categorical_columns.append(column)
-            """elif all(float(x).is_integer() for x in df_data[column]):
-                categorical_columns.append(column)"""
-        return categorical_columns
     
     def is_number(self,s):
         try:
@@ -101,14 +137,57 @@ class DataCollection:
         return recordSet
 
     @staticmethod
-    def build_graph(x_coordinates, y_coordinates):
+    def build_graph(x_coordinates, y_coordinates,font_size=15,x_rotate=0,y_title=None,x_red=None,y_red=None,faulty_attribute=None):
         img = io.BytesIO()
-        #plt.xticks(rotation=45)
-        #plt.tick_params(labelsize=1)
-        plt.rcParams.update({'font.size': 15})
+        plt.rcParams.update({'font.weight': 'bold'})
         plt.tight_layout()
         plt.figure(figsize=(30,3))
-        plt.plot(x_coordinates, y_coordinates,'o')
+        plt.title(y_title)
+        #########################################
+        #This part is for data visualization plot
+        ########################################
+        if  x_red is not None:# and np.char.isnumeric(y_coordinates):
+            fig, ax = plt.subplots()
+            fig = plt.gcf() 
+            fig.set_size_inches(30,3)
+            fig.autofmt_xdate()
+            for df in x_coordinates: 
+             #
+             #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in np.array(df['time'])]
+             dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in np.array(df['time'])]
+             #dates = [datetime.datetime.strptime(x, "%M/%d/%y") for x in x_coordinates]
+             colors=list(mcolors.CSS4_COLORS)
+             color=random.choice(colors)        
+             while color in ['red','white','whitesmoke','snow','mistyrose','oldlace','floralwhite','cornsilk','lemonchiffon','ivory','beige','lightyellow','honeydew','mintcream','azure','aliceblue','ghostwhite','lavenderblush','seashell','linen']:
+               color=random.choice(colors)
+             x_coordinates=dates
+             plt.axes(ax)
+             ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+             ax.xaxis.set_major_locator(DayLocator())
+             plt.xticks(rotation=x_rotate)
+             #plt.title(y_title+" over time")
+             plt.xlabel('Date',fontweight='bold',fontsize=15)
+             plt.ylabel(y_title,fontweight='bold',fontsize=15)
+             ax.plot(x_coordinates, np.array(df[faulty_attribute]).ravel(),"o",color=color)
+             #
+            ax.legend()
+            #dates = [datetime.datetime.strptime(str(x), "%Y-%m-%d") for x in x_red]
+            dates = [datetime.datetime.strptime(str(x), "%m/%d/%Y") for x in x_red]
+            x_red=dates
+            plt.axes(ax)
+            ax.xaxis.set_major_formatter(DateFormatter("%b %d"))
+            ax.xaxis.set_major_locator(DayLocator())
+            plt.xticks(rotation=x_rotate)
+            plt.plot(x_red, np.array(y_red).ravel(),"o", color="red")
+        ############################################
+        #This part is for s-score per attribute plot
+        ############################################
+        else:
+            plt.xticks(rotation=90)
+            #plt.title('s-score per Attribute')
+            plt.xlabel('Attribute Name',fontweight='bold',fontsize=15)
+            plt.ylabel('s-score',fontweight='bold',fontsize=15)
+            plt.plot(x_coordinates, y_coordinates,"o")
         plt.savefig(img, format='png',bbox_inches='tight')
         img.seek(0)
         graph_url = base64.b64encode(img.getvalue()).decode()
