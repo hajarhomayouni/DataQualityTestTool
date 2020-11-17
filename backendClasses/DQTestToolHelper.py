@@ -157,7 +157,7 @@ class DQTestToolHelper:
     #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     numberOfKnownFaultsDataFrame=pd.read_sql(sql="SELECT count(*) FROM knownFaults_"+datasetId, con=db)
     numberOfKnownFaults=numberOfKnownFaultsDataFrame[numberOfKnownFaultsDataFrame.columns.values[0]].values[0]
-    faultyThreshold=np.percentile(invalidityScores,95)        
+    faultyThreshold=np.percentile(invalidityScores,98)        
     #
     X=np.array(XRawWithInvalidityScores)
     temp=X.reshape(X.shape[0]*X.shape[1],X.shape[2])
